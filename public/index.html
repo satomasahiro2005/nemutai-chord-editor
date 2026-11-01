@@ -739,6 +739,11 @@ src.addEventListener('keydown', (e) => {
       if (atEnd && OUT[k] === '[|]' && k !== '/' && /^\|?$/.test(typed)) {
         e.preventDefault(); closeCompletion(); insertText('|'); return;
       }
+      // lengths typed into an empty "[]" (or one of lengths only) go inside it: "[----]"
+      const len = '-=>'.includes(k) ? k : OUT[k] && OUT[k] !== '[|]' ? OUT[k] : null;
+      if (atEnd && len && /^[-=> ]*$/.test(typed)) {
+        e.preventDefault(); closeCompletion(); insertText(len); return;
+      }
       // a space, barline or length steps out of the chord first ("/" stays: slash chords)
       if (atEnd && (' -=>　'.includes(k) || (OUT[k] && k !== '/'))) {
         e.preventDefault();
