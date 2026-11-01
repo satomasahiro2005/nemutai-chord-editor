@@ -30,8 +30,18 @@ button.on { border-color: var(--hi); color: var(--hi); }
 #tlwrap { position: relative; }
 #tlspace { height: 76px; }
 #tl { position: absolute; top: 0; left: 0; display: block; height: 76px; cursor: pointer; }
-main { display: grid; grid-template-columns: minmax(280px, 42%) 1fr 120px; min-height: 0; }
-#left { display: flex; flex-direction: column; min-height: 0; border-right: 1px solid var(--line); }
+main { display: grid; grid-template-columns: var(--left, 42%) 6px 1fr 120px; min-height: 0; }
+#split { cursor: col-resize; background: var(--line); opacity: .35; }
+#split:hover, #split.drag { opacity: 1; background: var(--hi); }
+/* thin, dark scrollbars; the preview has none (the minimap scrolls it) */
+* { scrollbar-width: thin; scrollbar-color: #3a3e46 transparent; }
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-thumb { background: #3a3e46; border-radius: 4px; }
+::-webkit-scrollbar-track, ::-webkit-scrollbar-corner { background: transparent; }
+#pv { scrollbar-width: none; }
+#pv::-webkit-scrollbar { display: none; }
+#pvin { zoom: var(--z, 1); }
+#left { display: flex; flex-direction: column; min-height: 0; min-width: 0; }
 #pal { display: flex; flex-wrap: wrap; gap: 4px; padding: 6px 8px; background: var(--panel); border-bottom: 1px solid var(--line); align-items: center; }
 #pal button { padding: 2px 8px; font-weight: 700; }
 #pal button.ch { color: var(--c); border-color: color-mix(in srgb, var(--c) 45%, transparent); }
@@ -42,7 +52,7 @@ main { display: grid; grid-template-columns: minmax(280px, 42%) 1fr 120px; min-h
 #ac { position: absolute; z-index: 5; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 3px; display: none; max-height: 220px; overflow: auto; box-shadow: 0 6px 18px #0008; }
 #ac div { padding: 2px 10px; font: 700 14px var(--mono); color: var(--c, var(--text)); border-radius: 4px; cursor: pointer; white-space: nowrap; }
 #ac div.sel { background: #3d5a8a; }
-#ed pre, #ed textarea { position: absolute; inset: 0; margin: 0; padding: 10px 12px; font: 14px/1.6 var(--mono); white-space: pre; overflow: auto; tab-size: 4; border: 0; }
+#ed pre, #ed textarea { position: absolute; inset: 0; margin: 0; padding: 10px 12px; font: calc(14px * var(--z, 1))/1.6 var(--mono); white-space: pre; overflow: auto; tab-size: 4; border: 0; }
 #ed pre { color: var(--text); pointer-events: none; }
 #ed textarea { background: transparent; color: transparent; caret-color: var(--text); resize: none; outline: none; }
 #ed textarea::selection { background: #3d5a8a88; color: transparent; }
@@ -81,7 +91,7 @@ main { display: grid; grid-template-columns: minmax(280px, 42%) 1fr 120px; min-h
 #mm { background: var(--panel2); border-left: 1px solid var(--line); cursor: pointer; display: block; width: 120px; height: 100%; }
 #drop { position: fixed; inset: 0; background: #faa33322; border: 3px dashed var(--hi); display: none; pointer-events: none; }
 body.dragging #drop { display: block; }
-@media (max-width: 800px) { main { grid-template-columns: 1fr; grid-template-rows: 45vh 1fr; } #mm { display: none; } #left { border-right: 0; border-bottom: 1px solid var(--line); } }
+@media (max-width: 800px) { main { grid-template-columns: 1fr; grid-template-rows: 45vh 1fr; } #mm, #split { display: none; } #left { border-bottom: 1px solid var(--line); } }
 </style>
 </head>
 <body>
@@ -92,6 +102,7 @@ body.dragging #drop { display: block; }
   <button id="rhythm" class="on" title="書いた長さどおりに弾き直す">リズム</button>
   <label>BPM <input id="bpm" type="number" min="20" max="400" step="1"></label>
   <label>移調 <input id="tr" type="number" min="-12" max="12" step="1" value="0"></label>
+  <label>拡大 <select id="zoom"><option>80</option><option>90</option><option selected>100</option><option>110</option><option>125</option><option>150</option><option>175</option><option>200</option></select></label>
   <label>色 <select id="color"><option value="0">度数</option><option value="1">音名</option></select></label>
   <label>出力 <select id="out"><option value="">内蔵音</option></select></label>
   <span id="info"></span>
@@ -108,7 +119,8 @@ body.dragging #drop { display: block; }
     <div id="pal"></div>
     <div id="ed"><pre id="hl" aria-hidden="true"></pre><textarea id="src" spellcheck="false" wrap="off" autocomplete="off"></textarea><div id="ac"></div></div>
   </div>
-  <div id="pv"></div>
+  <div id="split" title="ドラッグで幅を変える"></div>
+  <div id="pv"><div id="pvin"></div></div>
   <canvas id="mm"></canvas>
 </main>
 <div id="drop"></div>
@@ -273,7 +285,7 @@ function renderPreview() {
     });
     html += '</div>';
   }
-  pv.innerHTML = html;
+  $('pvin').innerHTML = html;
   tokEls = [];
   for (const el of pv.querySelectorAll('.tok')) (tokEls[+el.dataset.t] ||= []).push(el);
   dhEls = new Map();
@@ -370,14 +382,23 @@ function paintMinimap() {
   const g = mm.getContext('2d');
   g.setTransform(dpr, 0, 0, dpr, 0, 0);
   g.clearRect(0, 0, w, h);
-  const ch = pv.scrollHeight, cw = pv.scrollWidth;
-  const sc = Math.min(0.35, (h - 12) / Math.max(1, ch)), sx = (w - 10) / Math.max(1, cw);
-  tokEls.forEach((els, i) => { for (const el of els || []) {
-    const tok = S.tokens[i];
-    g.fillStyle = i === player.curTok ? '#fff' : colorOf(tok) || (tok.kind === K.ERR ? '#f26161' : '#8b9099');
-    const b = inPv(el);
-    g.fillRect(5 + b.x * sx, 6 + b.y * sc, Math.max(2, b.w * sx), Math.max(2, 18 * sc));
-  } });
+  // chords and lyrics with their places in the preview
+  const marks = [];
+  tokEls.forEach((els, i) => { for (const el of els || []) marks.push({ b: inPv(el), tok: S.tokens[i], i }); });
+  for (const el of pv.querySelectorAll('.ly, .text, .label')) if (el.textContent.trim()) marks.push({ b: inPv(el), text: true });
+  const right = Math.max(1, ...marks.map((m) => m.b.x + m.b.w));
+  const sc = Math.min(0.35, (h - 12) / Math.max(1, pv.scrollHeight)), sx = (w - 10) / right;
+  // each chord fills the space up to the next chord on its line (the last one to the edge)
+  const chords = marks.filter((m) => !m.text).sort((a, b) => a.b.y - b.b.y || a.b.x - b.b.x);
+  chords.forEach((m, k) => {
+    const n = chords[k + 1], sameLine = n && Math.abs(n.b.y - m.b.y) < 6;
+    m.end = sameLine ? n.b.x : right;
+  });
+  for (const m of marks) {
+    if (m.text) { g.fillStyle = 'rgba(230,232,236,.55)'; g.fillRect(5 + m.b.x * sx, 6 + m.b.y * sc, Math.max(2, m.b.w * sx), Math.max(1.5, 10 * sc)); continue; }
+    g.fillStyle = m.i === player.curTok ? '#fff' : colorOf(m.tok) || (m.tok.kind === K.ERR ? '#f26161' : '#8b9099');
+    g.fillRect(5 + m.b.x * sx, 6 + m.b.y * sc, Math.max(3, (m.end - m.b.x) * sx - 1), Math.max(3, 16 * sc));
+  }
   g.fillStyle = '#ffffff18';
   g.fillRect(1, 6 + pv.scrollTop * sc, w - 2, Math.max(4, pv.clientHeight * sc));
   mm.dataset.sc = sc;
@@ -1030,6 +1051,36 @@ function openMidi() {
 }
 $('out').onfocus = $('out').onmousedown = openMidi;
 if (store.get('csp.out')) openMidi();
+
+// zoom for the editor and the preview
+function setZoom(z) {
+  document.documentElement.style.setProperty('--z', z / 100);
+  $('zoom').value = String(z);
+  store.set('csp.zoom', String(z));
+  drawMinimap();
+}
+$('zoom').onchange = () => setZoom(+$('zoom').value);
+setZoom(+(store.get('csp.zoom') || 100));
+// drag the line between the editor and the preview
+function setLeft(px) {
+  px = Math.max(240, Math.min(px, window.innerWidth - 360));
+  document.documentElement.style.setProperty('--left', px + 'px');
+  return px;
+}
+if (store.get('csp.left')) setLeft(+store.get('csp.left'));
+$('split').addEventListener('mousedown', (e) => {
+  e.preventDefault();
+  $('split').classList.add('drag');
+  const move = (ev) => { setLeft(ev.clientX); renderTimeline(); };
+  const up = (ev) => {
+    window.removeEventListener('mousemove', move);
+    $('split').classList.remove('drag');
+    store.set('csp.left', String(setLeft(ev.clientX)));
+    drawMinimap();
+  };
+  window.addEventListener('mousemove', move);
+  window.addEventListener('mouseup', up, { once: true });
+});
 
 loadText(store.get('csp.text') ?? SAMPLE);
 </script>
