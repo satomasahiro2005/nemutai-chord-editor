@@ -1,7 +1,8 @@
 // ==UserScript==
 // @name         nemutai Chord Player for ChordWiki
 // @namespace    https://chord.nemut.ai/
-// @version      0.2.0
+// @author       nemut.ai
+// @version      0.2.1
 // @description  Plays ChordWiki chord sheets along a timeline, with chords coloured by degree.
 // @description:ja ChordWiki のコード譜をタイムラインに合わせて鳴らし、コードを度数で色分けします。
 // @match        https://ja.chordwiki.org/wiki/*

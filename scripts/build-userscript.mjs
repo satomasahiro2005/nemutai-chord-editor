@@ -12,6 +12,7 @@ const url = 'https://chord.nemut.ai/chordwiki-player.user.js';
 const header = `// ==UserScript==
 // @name         nemutai Chord Player for ChordWiki
 // @namespace    https://chord.nemut.ai/
+// @author       nemut.ai
 // @version      ${pkg.version}
 // @description  Plays ChordWiki chord sheets along a timeline, with chords coloured by degree.
 // @description:ja ChordWiki のコード譜をタイムラインに合わせて鳴らし、コードを度数で色分けします。

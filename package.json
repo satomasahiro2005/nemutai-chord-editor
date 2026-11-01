@@ -1,6 +1,8 @@
 {
   "name": "nemutai-chord-editor",
   "private": true,
+  "version": "0.2.1",
+  "author": "nemut.ai",
   "type": "module",
   "license": "MIT",
   "scripts": {
@@ -8,6 +10,5 @@
     "serve": "python -m http.server 8000 --directory public",
     "deploy": "node scripts/build-userscript.mjs && wrangler deploy",
     "build": "node scripts/build-userscript.mjs"
-  },
-  "version": "0.2.0"
+  }
 }
