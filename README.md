@@ -32,8 +32,8 @@ The whole app is two files, `public/index.html` and `public/engine.js`, with no 
 | Ctrl+Shift+Space | Play the chord at the caret |
 | Ctrl+/ | Comment the selected lines on / off |
 | Ctrl+S / Ctrl+O | Save / open |
-| Ctrl+Space | Plays from the chord at the caret, or stops |
-| Space | Play / stop (outside the editor) |
+| Space (outside the editor) | Plays from the chord at the caret, or stops |
+| Ctrl+Space | Play / stop from the playhead (also while typing) |
 
 In chord input mode (keys follow chordlistener's ChordWiki editor):
 

@@ -87,7 +87,7 @@ body.dragging #drop { display: block; }
 <body>
 <div id="bar">
   <span class="title" id="title">nemutai Chord Editor</span>
-  <button id="play" title="Space / Ctrl+Space でカーソル位置から">再生</button>
+  <button id="play" title="Ctrl+Space / Space でカーソル位置のコードから">再生</button>
   <button id="loop" class="on">ループ</button>
   <button id="rhythm" class="on" title="書いた長さどおりに弾き直す">リズム</button>
   <label>BPM <input id="bpm" type="number" min="20" max="400" step="1"></label>
@@ -978,17 +978,15 @@ document.addEventListener('keydown', (e) => {
     if (e.code === 'KeyS' && !e.shiftKey) { e.preventDefault(); $('save').click(); return; }
     if (e.code === 'KeyO' && !e.shiftKey) { e.preventDefault(); $('open').click(); return; }
   }
-  // Ctrl+Space: play from the chord at the caret (works while typing), or stop
-  if (e.ctrlKey && e.code === 'Space') {
+  // Ctrl+Space: play / stop from where the playhead is (works while typing)
+  if (e.ctrlKey && e.code === 'Space') { e.preventDefault(); $('play').click(); return; }
+  // Space outside the editor: play from the chord at the caret, or stop
+  if (e.code === 'Space' && document.activeElement !== src && !['INPUT', 'SELECT', 'BUTTON'].includes(document.activeElement.tagName)) {
     e.preventDefault();
     if (player.on) { player.stop(); return; }
     const t = tokAtCaret();
     player.pos = t ? firstEventOf(t) : 0;
     player.start();
-    return;
-  }
-  if (e.code === 'Space' && document.activeElement !== src && !['INPUT', 'SELECT'].includes(document.activeElement.tagName)) {
-    e.preventDefault(); $('play').click();
   }
 });
 window.addEventListener('resize', () => { renderTimeline(); drawMinimap(); });
