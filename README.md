@@ -42,7 +42,7 @@ In chord input mode (keys follow chordlistener's ChordWiki editor):
 | A–G (either case) | opens `[ ]` | bass note after `/` or `on` |
 | 1–7 | the key's chord on that degree (7th toggle applies) | digits stay digits |
 | N | `[N.C.]` | steps out and adds `[N.C.]` (an `n` right after `o` stays, for `on`) |
-| `\|` `\` `/` | `[\|]` | `/` stays (slash chord) |
+| `\|` `\` `/` `¥` | `[\|]` | `/` stays (slash chord) |
 | `^` `` ` `` | `=` | |
 | `:` `'` | `----` | |
 | `;` `@` | `>` | |

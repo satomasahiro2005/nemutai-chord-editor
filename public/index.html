@@ -542,6 +542,25 @@ function openCompletion() {
   ac.style.top = 10 + row * lh - src.scrollTop + 2 + 'px';
   ac.style.display = 'block';
 }
+// a barline in place of [from, to): "[|]" in chord input mode (stepping out of
+// a chord first), "|" otherwise
+function typeBarline(from, to) {
+  if (!chordMode) { insertText('|', from, to); return; }
+  closeCompletion();
+  if (inBracket(from) && src.value[to] === ']') {
+    insertText('', from, to);
+    src.setSelectionRange(from + 1, from + 1);
+    insertText('[|]');
+  } else insertText('[|]', from, to);
+}
+// a yen sign confirmed through the IME becomes a barline too
+src.addEventListener('compositionend', (e) => {
+  if (e.data !== '￥' && e.data !== '¥') return;
+  setTimeout(() => {
+    const c = src.selectionStart;
+    if (src.value[c - 1] === e.data) typeBarline(c - 1, c);
+  });
+});
 // is the caret inside [..] on its line?
 function inBracket(c) {
   const line = src.value.lastIndexOf('\n', c - 1) + 1;
@@ -571,6 +590,12 @@ src.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') { closeCompletion(); return; }
   }
   if (e.key === 'Tab' && !e.ctrlKey && !e.altKey) { e.preventDefault(); stepChord(e.shiftKey ? -1 : 1, audition); return; }
+  // the yen key (¥ / ￥ on Japanese keyboards) types a barline like "|"
+  if (!e.isComposing && (e.key === '¥' || e.key === '￥') && !e.ctrlKey && !e.altKey) {
+    e.preventDefault();
+    typeBarline(src.selectionStart, src.selectionEnd);
+    return;
+  }
   // Backspace on "[" of "[]" (or "(" of "()") removes the pair, and deleting
   // the last character of a chord removes its brackets with it
   if ((e.key === 'Backspace' || e.key === 'Delete') && !e.ctrlKey && src.selectionStart === src.selectionEnd) {
