@@ -808,7 +808,7 @@ const player = {
     g.gain.linearRampToValueAtTime(a, time + 0.006);
     g.gain.setTargetAtTime(a * 0.35, time + 0.01, 0.25);
     o1.start(time); o2.start(time);
-    return { n, g, o: [o1, o2] };
+    return { n, g, o: [o1, o2], start: time };
   },
   noteOff(v, time) {
     // Notes sent with the same timestamp can arrive in any order on Windows
@@ -820,6 +820,13 @@ const player = {
       const at = Math.max(performance.now(), this.perf(time) - 2, v.at + 1);
       this.midi.send([0x80, v.n, 0], at);
       this.lastSched = Math.max(this.lastSched || 0, at);
+      return;
+    }
+    // released before it even starts (stopped right after scheduling): never sound it
+    if (time <= v.start + 0.001) {
+      v.g.gain.cancelScheduledValues(0);
+      v.g.gain.setValueAtTime(0, Math.min(time, v.start));
+      for (const o of v.o) o.stop(v.start);
       return;
     }
     v.g.gain.cancelScheduledValues(time);
