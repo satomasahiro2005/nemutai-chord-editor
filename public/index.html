@@ -630,6 +630,15 @@ src.addEventListener('keydown', (e) => {
         insertText(OUT[k] && k !== '/' ? OUT[k] : k);
         return;
       }
+      // N: no chord. Inside an empty [] it fills it, at the end of a chord it
+      // steps out first (but "on" for a bass note keeps its n)
+      if (kl === 'n' && atEnd && !typed.endsWith('o')) {
+        e.preventDefault();
+        closeCompletion();
+        if (typed === '') insertText('N.C.');
+        else { src.setSelectionRange(c + 1, c + 1); insertText('[N.C.]'); }
+        return;
+      }
       let t = null;
       if (k === '[') t = '()';
       else if (/^[a-g]$/i.test(k) && /(\/|on)$/.test(typed)) t = k.toUpperCase();   // bass note
