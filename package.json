@@ -6,6 +6,8 @@
   "scripts": {
     "test": "node test/run.mjs",
     "serve": "python -m http.server 8000 --directory public",
-    "deploy": "wrangler deploy"
-  }
+    "deploy": "node scripts/build-userscript.mjs && wrangler deploy",
+    "build": "node scripts/build-userscript.mjs"
+  },
+  "version": "0.1.0"
 }
