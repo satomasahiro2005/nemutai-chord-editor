@@ -813,6 +813,8 @@ const css = `
 span.chord.ncp-col { font-weight: 700; }
 span.chord.ncp-cur { background: var(--ncp-c, #faa333); color: #fff !important; border-radius: 3px; }
 body.ncp-on { padding-bottom: 60px; }
+.ncp-view { position: fixed; left: 0; right: 0; top: 0; bottom: 52px; z-index: 2147482999; border: 0; width: 100%; height: calc(100% - 52px); background: #1b1d22; }
+.ncp-bar.ncp-viewing > :not(.ncp-keep) { display: none; }
 `;
 
 // ---------------------------------------------------------------- player
@@ -938,7 +940,7 @@ function main() {
 
   const bar = document.createElement('div');
   bar.className = 'ncp-bar';
-  bar.innerHTML = `<span class="ncp-name">♪</span><button data-k="play">再生</button><button data-k="loop" class="on">ループ</button>` +
+  bar.innerHTML = `<span class="ncp-name ncp-keep">♪</span><button data-k="view" class="ncp-keep" title="nemutai Chord Editor の画面で開く">nemutai</button><button data-k="play">再生</button><button data-k="loop" class="on">ループ</button>` +
     `<button data-k="rhythm" class="on" title="書いた長さどおりに弾き直す">リズム</button><label>BPM <input data-k="bpm" type="number" min="20" max="400"></label>` +
     `<div class="ncp-tl"><canvas></canvas><div class="ncp-ph"></div></div>`;
   document.body.appendChild(bar);
@@ -995,6 +997,32 @@ function main() {
   for (const wn of S.warnings) { g.strokeStyle = '#f26161'; g.lineWidth = 2; g.strokeRect(X(wn.start) + 1, 5, (Math.max(wn.written, wn.meter)) * pxq - 2, 30); }
   cv.onclick = (e) => player.seek(Math.max(0, (e.offsetX - 8) / pxq));
   ui.playhead(0);
+
+  // the chord.nemut.ai screen over the page; the sheet goes to it inside the
+  // browser (postMessage) and the embedded view keeps nothing
+  const VIEW = 'https://chord.nemut.ai';
+  let frame = null;
+  const setView = (on) => {
+    try { localStorage.setItem('ncp.view', on ? '1' : '0'); } catch {}
+    q('view').classList.toggle('on', on);
+    bar.classList.toggle('ncp-viewing', on);
+    if (on) {
+      if (player.on) player.stop();
+      frame = document.createElement('iframe');
+      frame.className = 'ncp-view';
+      frame.allow = 'midi; autoplay';
+      frame.src = VIEW + '/?embed=1';
+      document.body.appendChild(frame);
+    } else if (frame) { frame.remove(); frame = null; }
+  };
+  window.addEventListener('message', (e) => {
+    if (e.origin !== VIEW || !frame || e.source !== frame.contentWindow || !e.data || e.data.type !== 'nemutai-ready') return;
+    frame.contentWindow.postMessage({ type: 'nemutai-sheet', text: sheet.text }, VIEW);
+  });
+  q('view').onclick = () => setView(!frame);
+  let saved = null;
+  try { saved = localStorage.getItem('ncp.view'); } catch {}
+  if (saved === '1') setView(true);
 
   // Alt+click a chord on the sheet: play from there
   sheet.els.forEach((el, o0) => {
