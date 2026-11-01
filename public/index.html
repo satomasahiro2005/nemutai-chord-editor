@@ -393,8 +393,7 @@ function paintMinimap() {
     const r = range.getBoundingClientRect();
     marks.push({ b: { x: r.left - p.left + pv.scrollLeft, y: r.top - p.top + pv.scrollTop, w: r.width }, text: true });
   }
-  const right = Math.max(1, ...marks.map((m) => m.b.x + m.b.w));
-  const sc = Math.min(0.35, (h - 12) / Math.max(1, pv.scrollHeight)), sx = (w - 10) / right;
+  const M = 6;   // margin on every side
   // each chord fills its bar up to the next chord in the same bar (the last one to the bar's end)
   const chords = marks.filter((m) => !m.text).sort((a, b) => a.b.y - b.b.y || a.b.x - b.b.x);
   chords.forEach((m, k) => {
@@ -403,13 +402,18 @@ function paintMinimap() {
     const bb = m.bar ? inPv(m.bar) : null;
     m.end = bb ? Math.max(m.b.x + m.b.w, bb.x + bb.w) : m.b.x + m.b.w;
   });
+  // scale so that everything, bar ends included, fits inside the margins
+  const left = Math.min(...marks.map((m) => m.b.x), 0);
+  const right = Math.max(1, ...marks.map((m) => m.end || m.b.x + m.b.w));
+  const sc = Math.min(0.35, (h - 2 * M) / Math.max(1, pv.scrollHeight)), sx = (w - 2 * M) / Math.max(1, right - left);
+  const X = (x) => M + (x - left) * sx;
   for (const m of marks) {
-    if (m.text) { g.fillStyle = 'rgba(230,232,236,.55)'; g.fillRect(5 + m.b.x * sx, 6 + m.b.y * sc, Math.max(2, m.b.w * sx), Math.max(1.5, 10 * sc)); continue; }
+    if (m.text) { g.fillStyle = 'rgba(230,232,236,.55)'; g.fillRect(X(m.b.x), M + m.b.y * sc, Math.max(2, m.b.w * sx), Math.max(1.5, 10 * sc)); continue; }
     g.fillStyle = m.i === player.curTok ? '#fff' : colorOf(m.tok) || (m.tok.kind === K.ERR ? '#f26161' : '#8b9099');
-    g.fillRect(5 + m.b.x * sx, 6 + m.b.y * sc, Math.max(3, (m.end - m.b.x) * sx - 1), Math.max(3, 16 * sc));
+    g.fillRect(X(m.b.x), M + m.b.y * sc, Math.max(3, (m.end - m.b.x) * sx - 1), Math.max(3, 16 * sc));
   }
   g.fillStyle = '#ffffff18';
-  g.fillRect(1, 6 + pv.scrollTop * sc, w - 2, Math.max(4, pv.clientHeight * sc));
+  g.fillRect(1, M + pv.scrollTop * sc, w - 2, Math.max(4, pv.clientHeight * sc));
   mm.dataset.sc = sc;
 }
 // position of an element inside the preview's scrolled content
