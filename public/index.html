@@ -587,6 +587,14 @@ src.addEventListener('keydown', (e) => {
         setTimeout(openCompletion);
         return;
       }
+      // 1-7: the key's chord on that degree (as the palette; 7th follows its toggle)
+      if (/^[1-7]$/.test(k)) {
+        e.preventDefault();
+        const [d, tri, sev] = DEG[+k - 1], name = pcName(S.tonic + d) + (sevenths ? sev : tri);
+        player.audition(name);
+        insertText(`[${name}]`);
+        return;
+      }
       if (kl === 'n') t = '[N.C.]';
       else if (OUT[k]) t = OUT[k];
       if (t) { e.preventDefault(); insertText(t); return; }
@@ -620,6 +628,14 @@ src.addEventListener('keydown', (e) => {
     insertText('[' + sel + ']');
     src.setSelectionRange(src.selectionStart - 1, src.selectionStart - 1);
     setTimeout(openCompletion);
+    return;
+  }
+  // ")" or "]" in front of the ")" of a tension just steps over it (and its "]")
+  if ((e.key === ')' || e.key === ']') && src.value[src.selectionStart] === ')' && src.selectionStart === src.selectionEnd) {
+    e.preventDefault();
+    let c = src.selectionStart + 1;
+    if (e.key === ']' && src.value[c] === ']') c++;
+    src.setSelectionRange(c, c);
     return;
   }
   if (e.key === ']' && src.value[src.selectionStart] === ']' && src.selectionStart === src.selectionEnd) {

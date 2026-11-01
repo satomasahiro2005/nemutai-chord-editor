@@ -40,6 +40,7 @@ In chord input mode (keys follow chordlistener's ChordWiki editor):
 | Key | Outside a chord | Inside a chord |
 |---|---|---|
 | A–G (either case) | opens `[ ]` | bass note after `/` or `on` |
+| 1–7 | the key's chord on that degree (7th toggle applies) | digits stay digits |
 | N | `[N.C.]` | |
 | `\` `/` | `\|` | `/` stays (slash chord) |
 | `^` `` ` `` | `=` | |
