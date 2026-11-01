@@ -609,14 +609,25 @@ src.addEventListener('keydown', (e) => {
   if ((e.key === 'Backspace' || e.key === 'Delete') && !e.ctrlKey && src.selectionStart === src.selectionEnd) {
     const c = src.selectionStart, v = src.value, pair = v.slice(c - 1, c + 1);
     if (e.key === 'Backspace' && (pair === '[]' || pair === '()')) { e.preventDefault(); closeCompletion(); insertText('', c - 1, c + 1); return; }
-    // a whole [Am] goes at once: Backspace just after its "]", Delete just before its "["
+    // Backspace just after a chord's "]" (Delete just before its "[") deletes
+    // inside it, one character at a time; the brackets go with the last one
     if (e.key === 'Backspace' && v[c - 1] === ']') {
       const open = v.lastIndexOf('[', c - 2), line = v.lastIndexOf('\n', c - 1);
-      if (open > line && !v.slice(open + 1, c - 1).includes(']')) { e.preventDefault(); closeCompletion(); insertText('', open, c); return; }
+      if (open > line && !v.slice(open + 1, c - 1).includes(']')) {
+        e.preventDefault(); closeCompletion();
+        if (c - 1 - open <= 2) insertText('', open, c);
+        else { insertText('', c - 2, c - 1); src.setSelectionRange(c - 1, c - 1); }
+        return;
+      }
     }
     if (e.key === 'Delete' && v[c] === '[') {
       const close = v.indexOf(']', c + 1), nl = v.indexOf('\n', c);
-      if (close > 0 && (nl < 0 || close < nl) && !v.slice(c + 1, close).includes('[')) { e.preventDefault(); closeCompletion(); insertText('', c, close + 1); return; }
+      if (close > 0 && (nl < 0 || close < nl) && !v.slice(c + 1, close).includes('[')) {
+        e.preventDefault(); closeCompletion();
+        if (close - c <= 2) insertText('', c, close + 1);
+        else { insertText('', c + 1, c + 2); src.setSelectionRange(c, c); }
+        return;
+      }
     }
     // deleting the last character inside a chord takes its brackets with it
     const open = inBracket(c) ? v.lastIndexOf('[', c - 1) : -1;

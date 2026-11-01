@@ -52,7 +52,7 @@ In chord input mode (keys follow chordlistener's ChordWiki editor):
 | `[` | | `()` |
 | space, `\|`, lengths | | step out of the chord first |
 
-Backspace just after a chord's `]` (or Delete just before its `[`) removes the whole `[Am]`; inside the brackets, keys edit one character at a time, and an empty `[]` or `()` goes with its last character.
+Backspace just after a chord's `]` (or Delete just before its `[`) deletes inside the chord one character at a time, and the brackets go when it is empty, so `[Am]` disappears after two presses; an empty `[]` or `()` goes with one.
 
 ### Web MIDI on Windows 11
 
