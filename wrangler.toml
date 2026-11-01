@@ -1,0 +1,7 @@
+# Static files on Cloudflare, served at chord.nemut.ai
+name = "nemutai-chord-editor"
+compatibility_date = "2025-03-01"
+routes = [{ pattern = "chord.nemut.ai", custom_domain = true }]
+
+[assets]
+directory = "./public"

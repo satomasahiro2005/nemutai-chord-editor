@@ -1,0 +1,14 @@
+# head comment
+C|G
+<
+F%G|=_|N.C.Am|%=
+Ｃｍ７｜Ｆ♯ｍ７♭５　Ｂ７
+C△7|Dø|EΔ7|Fφ7|GΦ
+ConE|C/E|ConC|C/C|Am7onG
+CleGlAm
+ C | | G |
+xyz|C xyz G
+C|Dm7
+E7(b9)|Am(add9)|Cm(maj7)|C7(9, 13)|C7(omit3)|Csus|C7alt
+>
+F|G|C
