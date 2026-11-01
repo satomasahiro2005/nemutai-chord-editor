@@ -425,8 +425,10 @@ function toggleComment() {
   insertText(out, a, b);
   src.setSelectionRange(a, a + out.length);
 }
-function goToSource(tok) {
-  src.focus();
+// move the editor's caret to a chord; the keyboard stays where it was, so a
+// click in the preview or timeline leaves Space for play / stop
+function goToSource(tok, focus = document.activeElement === src) {
+  if (focus) src.focus();
   src.setSelectionRange(tok.o0, tok.o0);
   const line = src.value.slice(0, tok.o0).split('\n').length - 1;
   const lh = parseFloat(getComputedStyle(src).lineHeight);
@@ -441,7 +443,7 @@ pv.addEventListener('click', (e) => {
   const el = e.target.closest('[data-t],[data-pre]');
   if (!el) return;
   const tok = S.tokens[+(el.dataset.t ?? el.dataset.pre)];
-  goToSource(tok);
+  goToSource(tok, false);
   if (e.altKey || player.on) player.seek(firstEventOf(tok));
 });
 pv.addEventListener('scroll', drawMinimap);
@@ -455,7 +457,7 @@ tl.addEventListener('click', (e) => {
   const b = Math.max(0, (e.offsetX + tlwrap.scrollLeft - 12) / view.pxq);
   player.seek(b);
   const i = lastEventAt(S.events, b);
-  if (i >= 0) goToSource(S.events[i].tok);
+  if (i >= 0) goToSource(S.events[i].tok, false);
 });
 
 // ------------------------------------------------------------ writing help
