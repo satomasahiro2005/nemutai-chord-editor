@@ -93,7 +93,6 @@ body.dragging #drop { display: block; }
   <label>BPM <input id="bpm" type="number" min="20" max="400" step="1"></label>
   <label>移調 <input id="tr" type="number" min="-12" max="12" step="1" value="0"></label>
   <label>色 <select id="color"><option value="0">度数</option><option value="1">音名</option></select></label>
-  <label>出力 <select id="out"><option value="">内蔵音</option></select></label>
   <span id="info"></span>
   <span class="sep"></span>
   <button id="sample">サンプル</button>
@@ -404,6 +403,27 @@ function syncCaret(e) {
   caretTok = t ? t.i : null;
   for (const el of tokEls[caretTok] || []) el.classList.add('caret');
 }
+function stepChord(dir, play) {
+  const chords = S.tokens.filter((t) => t.chord || t.kind === K.ERR);
+  if (!chords.length) return;
+  const cur = tokAtCaret(), c = src.selectionStart;
+  let t;
+  if (dir > 0) t = chords.find((x) => x.o0 > c) || chords[chords.length - 1];
+  else { const start = cur && cur.o0 < c ? cur.o0 : c; t = [...chords].reverse().find((x) => x.o0 < start) || chords[0]; }
+  goToSource(t);
+  if (play && t.chord) player.audition(src.value.slice(t.o0, t.o1));
+}
+// "#" at the start of the selected lines, on or off
+function toggleComment() {
+  const v = src.value, a = v.lastIndexOf('\n', src.selectionStart - 1) + 1;
+  let b = v.indexOf('\n', Math.max(src.selectionEnd - (src.selectionEnd > src.selectionStart ? 1 : 0), a));
+  if (b < 0) b = v.length;
+  const lines = v.slice(a, b).split('\n');
+  const on = lines.every((l) => l.startsWith('#'));
+  const out = lines.map((l) => (on ? l.slice(1) : '#' + l)).join('\n');
+  insertText(out, a, b);
+  src.setSelectionRange(a, a + out.length);
+}
 function goToSource(tok) {
   src.focus();
   src.setSelectionRange(tok.o0, tok.o0);
@@ -549,23 +569,48 @@ src.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' || e.key === 'Tab') { e.preventDefault(); acceptCompletion(); return; }
     if (e.key === 'Escape') { closeCompletion(); return; }
   }
-  // chord input mode: A-G outside brackets opens a chord, and a space,
-  // barline or length symbol typed inside one steps out of it first
-  if (chordMode && !e.isComposing && !e.ctrlKey && !e.altKey && !e.metaKey && e.key.length === 1) {
-    const c = src.selectionStart, open = inBracket(c);
-    if (!open && /^[A-G]$/.test(e.key) && src.selectionStart === src.selectionEnd) {
-      e.preventDefault();
-      insertText('[' + e.key + ']');
-      src.setSelectionRange(src.selectionStart - 1, src.selectionStart - 1);
-      setTimeout(openCompletion);
-      return;
-    }
-    if (open && ' |-=>　'.includes(e.key) && src.value[c] === ']') {
-      e.preventDefault();
-      closeCompletion();
-      src.setSelectionRange(c + 1, c + 1);
-      insertText(e.key);
-      return;
+  if (e.key === 'Tab' && !e.ctrlKey && !e.altKey) { e.preventDefault(); stepChord(e.shiftKey ? -1 : 1, audition); return; }
+  // chord input mode (keys as in chordlistener's editor): outside a chord,
+  // A-G opens one and a few keys give barlines and lengths; inside, single
+  // letters type the common parts of a chord name
+  if (chordMode && !e.isComposing && !e.ctrlKey && !e.altKey && !e.metaKey && e.key.length === 1 &&
+      src.selectionStart === src.selectionEnd) {
+    const c = src.selectionStart, k = e.key, kl = k.toLowerCase();
+    const OUT = { '\\': '|', '/': '|', '^': '=', '`': '=', ':': '----', "'": '----', ';': '>', '@': '>' };
+    const IN = { w: '#', f: 'b', x: '##', v: 'bb', k: 'm7-5', y: 'add', l: 'aug', z: 'sus', j: 'M7', q: 'omit', r: 'm7', p: '+', h: 'dim' };
+    if (!inBracket(c)) {
+      let t = null;
+      if (/^[a-g]$/i.test(k)) {
+        e.preventDefault();
+        insertText('[' + k.toUpperCase() + ']');
+        src.setSelectionRange(src.selectionStart - 1, src.selectionStart - 1);
+        setTimeout(openCompletion);
+        return;
+      }
+      if (kl === 'n') t = '[N.C.]';
+      else if (OUT[k]) t = OUT[k];
+      if (t) { e.preventDefault(); insertText(t); return; }
+    } else {
+      const open = src.value.lastIndexOf('[', c - 1), typed = src.value.slice(open + 1, c);
+      const atEnd = src.value[c] === ']';
+      // a space, barline or length steps out of the chord first ("/" stays: slash chords)
+      if (atEnd && (' |-=>　'.includes(k) || (OUT[k] && k !== '/'))) {
+        e.preventDefault();
+        closeCompletion();
+        src.setSelectionRange(c + 1, c + 1);
+        insertText(OUT[k] && k !== '/' ? OUT[k] : k);
+        return;
+      }
+      let t = null;
+      if (k === '[') t = '()';
+      else if (/^[a-g]$/i.test(k) && /(\/|on)$/.test(typed)) t = k.toUpperCase();   // bass note
+      else if (IN[kl] && typed.length > 0) t = IN[kl];
+      if (t) {
+        e.preventDefault();
+        insertText(t);
+        if (t === '()') src.setSelectionRange(src.selectionStart - 1, src.selectionStart - 1);
+        return;
+      }
     }
   }
   // "[" brings its "]"; typing "]" in front of one just steps over it
@@ -593,9 +638,9 @@ src.addEventListener('input', () => { if (ac.style.display === 'block') setTimeo
 src.addEventListener('blur', () => setTimeout(closeCompletion, 100));
 
 // ------------------------------------------------------------ playback
-// WebAudio voice (or Web MIDI out), scheduled ahead like a sequencer.
+// WebAudio voice, scheduled ahead like a sequencer.
 const player = {
-  on: false, pos: 0, ctx: null, master: null, t0: 0, b0: 0, next: 0, cycle: 0, voices: [], cur: [], curTok: -1, curHit: null, midi: null,
+  on: false, pos: 0, ctx: null, master: null, t0: 0, b0: 0, next: 0, cycle: 0, voices: [], cur: [], curTok: -1, curHit: null,
   bpm() { return +$('bpm').value || 120; },
   beatAt(time) { return this.b0 + (time - this.t0) * this.bpm() / 60; },
   timeAt(beat) { return this.t0 + (beat - this.b0) * 60 / this.bpm(); },
@@ -609,7 +654,6 @@ const player = {
     return this.ctx;
   },
   noteOn(n, vel, time) {
-    if (this.midi) { this.midi.send([0x90, n, vel], this.perf(time)); return { n, midi: true }; }
     const c = this.ctx, f = 440 * 2 ** ((n - 69) / 12), g = c.createGain(), a = vel / 127;
     const o1 = c.createOscillator(), o2 = c.createOscillator();
     o1.type = 'triangle'; o2.type = 'sine'; o1.frequency.value = f; o2.frequency.value = f * 2;
@@ -622,12 +666,10 @@ const player = {
     return { n, g, o: [o1, o2] };
   },
   noteOff(v, time) {
-    if (v.midi) { this.midi.send([0x80, v.n, 0], this.perf(time)); return; }
     v.g.gain.cancelScheduledValues(time);
     v.g.gain.setTargetAtTime(0, time, 0.08);
     for (const o of v.o) o.stop(time + 0.6);
   },
-  perf(time) { return performance.now() + (time - this.ctx.currentTime) * 1000; },
   release(time) { for (const v of this.voices) this.noteOff(v, time); this.voices = []; },
   strike(notes, vel, time) { this.release(time); this.voices = notes.map((n) => this.noteOn(n, vel, time)); },
   // a chord on its own, for writing (not tied to the song position)
@@ -814,6 +856,25 @@ $('bpm').oninput = () => { bpmTouched = true; if (player.on) { player.t0 = playe
 $('tr').oninput = update;
 $('color').onchange = () => { palKey = ''; update(); };
 document.addEventListener('keydown', (e) => {
+  if (e.ctrlKey && !e.altKey) {
+    const k = e.key, prev = k === '[' || k === '{', next = k === ']' || k === '}';
+    // Ctrl+[ / Ctrl+]: previous / next chord, and play it
+    if (!e.shiftKey && (prev || next)) { e.preventDefault(); stepChord(prev ? -1 : 1, true); return; }
+    // Ctrl+Shift+[ / ] or A / D: same; Ctrl+Shift+Space: play the chord at the caret
+    if (e.shiftKey && (prev || next || e.code === 'KeyA' || e.code === 'KeyD')) {
+      e.preventDefault(); stepChord(prev || e.code === 'KeyA' ? -1 : 1, true); return;
+    }
+    if (e.shiftKey && e.code === 'Space') {
+      e.preventDefault();
+      const t = tokAtCaret();
+      if (t && t.chord) player.audition(src.value.slice(t.o0, t.o1));
+      return;
+    }
+    // Ctrl+/: comment lines on / off; Ctrl+S save; Ctrl+O open
+    if (k === '/' && !e.shiftKey) { e.preventDefault(); toggleComment(); return; }
+    if (e.code === 'KeyS' && !e.shiftKey) { e.preventDefault(); $('save').click(); return; }
+    if (e.code === 'KeyO' && !e.shiftKey) { e.preventDefault(); $('open').click(); return; }
+  }
   // Ctrl+Space: play from the chord at the caret (works while typing), or stop
   if (e.ctrlKey && e.code === 'Space') {
     e.preventDefault();
@@ -828,22 +889,6 @@ document.addEventListener('keydown', (e) => {
   }
 });
 window.addEventListener('resize', () => { renderTimeline(); drawMinimap(); });
-// Web MIDI only when asked for: opening MIDI ports on page load can hang the
-// browser with some Windows MIDI drivers (and DAWs holding the ports).
-$('out').onfocus = $('out').onmousedown = () => {
-  if (midiAsked || !navigator.requestMIDIAccess) return;
-  midiAsked = true;
-  navigator.requestMIDIAccess().then((acc) => {
-    const fill = () => {
-      const sel = $('out'), keep = sel.value;
-      sel.innerHTML = '<option value="">内蔵音</option>' + [...acc.outputs.values()].map((o) => `<option value="${o.id}">${esc(o.name)}</option>`).join('');
-      sel.value = keep;
-    };
-    fill(); acc.onstatechange = fill;
-    $('out').onchange = () => { if (player.on) player.release(player.ctx.currentTime); player.midi = acc.outputs.get($('out').value) || null; };
-  }).catch(() => {});
-};
-let midiAsked = false;
 
 loadText(store.get('csp.text') ?? SAMPLE);
 </script>

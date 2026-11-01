@@ -13,7 +13,7 @@ The whole app is two files, `public/index.html` and `public/engine.js`, with no 
 - Type on the left; the preview on the right and the timeline at the top update immediately
 - The preview colours each chord by its scale degree in the key and shows lyrics and note lengths under the chords
 - The timeline draws each chord as a block as long as it sounds; bars whose written lengths don't fill the meter (or overflow it) are marked in red with their length in beats
-- Plays through a small built-in synth or a Web MIDI output, lighting up the current chord and the current note
+- Plays through a small built-in synth, lighting up the current chord and the current note
 - Exports a `.mid` file that drops straight onto a DAW timeline
 - Open, save or drag in `.txt` files
 
@@ -26,8 +26,30 @@ The whole app is two files, `public/index.html` and `public/engine.js`, with no 
 | Alt+1–7 | Inserts the chord on that degree (Alt+Shift for the seventh) |
 | Caret onto a chord | Plays that chord (toggle with 試聴) |
 | コード入力 (chord input) | While on, typing A–G outside brackets opens `[ ]` with suggestions, and a space, `\|` or length symbol steps out again: `C Am7 F` becomes `[C] [Am7] [F]` |
+| Tab / Shift+Tab | Next / previous chord |
+| Ctrl+] / Ctrl+[ | Next / previous chord, and play it |
+| Ctrl+Shift+] / [ (or D / A) | Same |
+| Ctrl+Shift+Space | Play the chord at the caret |
+| Ctrl+/ | Comment the selected lines on / off |
+| Ctrl+S / Ctrl+O | Save / open |
 | Ctrl+Space | Plays from the chord at the caret, or stops |
 | Space | Play / stop (outside the editor) |
+
+In chord input mode (keys follow chordlistener's ChordWiki editor):
+
+| Key | Outside a chord | Inside a chord |
+|---|---|---|
+| A–G (either case) | opens `[ ]` | bass note after `/` or `on` |
+| N | `[N.C.]` | |
+| `\` `/` | `\|` | `/` stays (slash chord) |
+| `^` `` ` `` | `=` | |
+| `:` `'` | `----` | |
+| `;` `@` | `>` | |
+| W F X V | | `#` `b` `##` `bb` |
+| R J K H | | `m7` `M7` `m7-5` `dim` |
+| Y L Z Q P | | `add` `aug` `sus` `omit` `+` |
+| `[` | | `()` |
+| space, `\|`, lengths | | step out of the chord first |
 
 ## ChordWiki format
 
