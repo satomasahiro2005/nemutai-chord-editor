@@ -384,15 +384,24 @@ function paintMinimap() {
   g.clearRect(0, 0, w, h);
   // chords and lyrics with their places in the preview
   const marks = [];
-  tokEls.forEach((els, i) => { for (const el of els || []) marks.push({ b: inPv(el), tok: S.tokens[i], i }); });
-  for (const el of pv.querySelectorAll('.ly, .text, .label')) if (el.textContent.trim()) marks.push({ b: inPv(el), text: true });
+  tokEls.forEach((els, i) => { for (const el of els || []) marks.push({ b: inPv(el), tok: S.tokens[i], i, bar: el.closest('.b') }); });
+  // text lines as wide as their letters, not their boxes
+  const range = document.createRange(), p = pv.getBoundingClientRect();
+  for (const el of pv.querySelectorAll('.ly, .text, .label')) {
+    if (!el.textContent.trim()) continue;
+    range.selectNodeContents(el);
+    const r = range.getBoundingClientRect();
+    marks.push({ b: { x: r.left - p.left + pv.scrollLeft, y: r.top - p.top + pv.scrollTop, w: r.width }, text: true });
+  }
   const right = Math.max(1, ...marks.map((m) => m.b.x + m.b.w));
   const sc = Math.min(0.35, (h - 12) / Math.max(1, pv.scrollHeight)), sx = (w - 10) / right;
-  // each chord fills the space up to the next chord on its line (the last one to the edge)
+  // each chord fills its bar up to the next chord in the same bar (the last one to the bar's end)
   const chords = marks.filter((m) => !m.text).sort((a, b) => a.b.y - b.b.y || a.b.x - b.b.x);
   chords.forEach((m, k) => {
-    const n = chords[k + 1], sameLine = n && Math.abs(n.b.y - m.b.y) < 6;
-    m.end = sameLine ? n.b.x : right;
+    const n = chords[k + 1];
+    if (n && n.bar === m.bar && Math.abs(n.b.y - m.b.y) < 6) { m.end = n.b.x; return; }
+    const bb = m.bar ? inPv(m.bar) : null;
+    m.end = bb ? Math.max(m.b.x + m.b.w, bb.x + bb.w) : m.b.x + m.b.w;
   });
   for (const m of marks) {
     if (m.text) { g.fillStyle = 'rgba(230,232,236,.55)'; g.fillRect(5 + m.b.x * sx, 6 + m.b.y * sc, Math.max(2, m.b.w * sx), Math.max(1.5, 10 * sc)); continue; }
