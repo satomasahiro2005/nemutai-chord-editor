@@ -570,10 +570,15 @@ src.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') { closeCompletion(); return; }
   }
   if (e.key === 'Tab' && !e.ctrlKey && !e.altKey) { e.preventDefault(); stepChord(e.shiftKey ? -1 : 1, audition); return; }
-  // Backspace on "[" of "[]" (or "(" of "()") removes the pair
-  if (e.key === 'Backspace' && !e.ctrlKey && src.selectionStart === src.selectionEnd) {
-    const c = src.selectionStart, pair = src.value.slice(c - 1, c + 1);
-    if (pair === '[]' || pair === '()') { e.preventDefault(); closeCompletion(); insertText('', c - 1, c + 1); return; }
+  // Backspace on "[" of "[]" (or "(" of "()") removes the pair, and deleting
+  // the last character of a chord removes its brackets with it
+  if ((e.key === 'Backspace' || e.key === 'Delete') && !e.ctrlKey && src.selectionStart === src.selectionEnd) {
+    const c = src.selectionStart, v = src.value, pair = v.slice(c - 1, c + 1);
+    if (e.key === 'Backspace' && (pair === '[]' || pair === '()')) { e.preventDefault(); closeCompletion(); insertText('', c - 1, c + 1); return; }
+    const open = inBracket(c) ? v.lastIndexOf('[', c - 1) : -1;
+    if (open >= 0 && v[open + 2] === ']' && c === open + (e.key === 'Backspace' ? 2 : 1)) {
+      e.preventDefault(); closeCompletion(); insertText('', open, open + 3); return;
+    }
   }
   // chord input mode (keys as in chordlistener's editor): outside a chord,
   // A-G opens one and a few keys give barlines and lengths; inside, single
