@@ -128,7 +128,7 @@ body.embed label:has(#tr) { display: none; }   /* ChordWiki's own transposition 
 </main>
 <div id="drop"></div>
 <script type="module">
-import { parse, K, ROW, lastEventAt, definingEvent, chordFromName } from './engine.js';
+import { parse, K, ROW, lastEventAt, definingEvent, chordFromName, tonicAt } from './engine.js';
 
 const $ = (id) => document.getElementById(id);
 const src = $('src'), hl = $('hl'), pv = $('pv'), tl = $('tl'), tlwrap = $('tlwrap'), mm = $('mm');
@@ -159,7 +159,7 @@ const view = { pxq: 26 };   // timeline pixels per quarter note
 // ------------------------------------------------------------ parse + render
 const colorOf = (tok) => {
   if (!tok || !tok.chord) return null;
-  const i = $('color').value === '1' ? tok.chord.rpc : (tok.chord.rpc - S.tonic + 12) % 12;
+  const i = $('color').value === '1' ? tok.chord.rpc : (tok.chord.rpc - tok.tonic + 12) % 12;
   return PAL[i];
 };
 const esc = (s) => s.replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
@@ -445,6 +445,7 @@ function syncCaret(e) {
   if (caretTok !== null) for (const el of tokEls[caretTok] || []) el.classList.remove('caret');
   caretTok = t ? t.i : null;
   for (const el of tokEls[caretTok] || []) el.classList.add('caret');
+  renderPalette();
 }
 function stepChord(dir, play) {
   const chords = S.tokens.filter((t) => t.chord || t.kind === K.ERR);
@@ -514,16 +515,18 @@ const DEG = [[0, '', 'M7', 'I'], [2, 'm', 'm7', 'ii'], [4, 'm', 'm7', 'iii'], [5
              [7, '', '7', 'V'], [9, 'm', 'm7', 'vi'], [11, 'm7b5', 'm7b5', 'vii']];
 const EXTRA = [[2, '7', 'V/V'], [4, '7', 'V/vi'], [9, '7', 'V/ii'], [5, 'm', 'iv'], [10, '', '♭VII', true]];
 let sevenths = store.get('csp.7th') === '1', audition = store.get('csp.aud') !== '0', chordMode = store.get('csp.cmode') === '1';
-const pcName = (pc, flat = false) => (flat || [5, 10, 3, 8, 1, 6].includes(S.tonic) ? FLAT : SHARP)[(pc + 12) % 12];
+// the key at the caret: the palette, 1-7 and completion follow it
+const keyTonic = () => tonicAt(S, src.selectionStart);
+const pcName = (pc, flat = false) => (flat || [5, 10, 3, 8, 1, 6].includes(keyTonic()) ? FLAT : SHARP)[(pc + 12) % 12];
 function keyChords() {
-  const T = S.tonic;
+  const T = keyTonic();
   return [...DEG.map(([d, tri, sev, lab]) => ({ name: pcName(T + d) + (sevenths ? sev : tri), lab, pc: (T + d) % 12 })),
           ...EXTRA.map(([d, q, lab, flat]) => ({ name: pcName(T + d, flat) + q, lab, pc: (T + d) % 12, extra: true }))];
 }
-const pcColor = (pc) => PAL[$('color').value === '1' ? pc : (pc - S.tonic + 12) % 12];
+const pcColor = (pc) => PAL[$('color').value === '1' ? pc : (pc - keyTonic() + 12) % 12];
 let palKey = '';
 function renderPalette() {
-  const key = `${S.tonic}|${sevenths}|${$('color').value}|${audition}|${chordMode}`;
+  const key = `${keyTonic()}|${sevenths}|${$('color').value}|${audition}|${chordMode}`;
   if (key === palKey) return;
   palKey = key;
   const btn = (c) => `<button class="ch" data-ins="[${c.name}]" style="--c:${pcColor(c.pc)}" title="${c.lab}">${esc(c.name)}<small>${c.lab}</small></button>`;
@@ -727,7 +730,7 @@ src.addEventListener('keydown', (e) => {
       // 1-7: the key's chord on that degree (as the palette; 7th follows its toggle)
       if (/^[1-7]$/.test(k)) {
         e.preventDefault();
-        const [d, tri, sev] = DEG[+k - 1], name = pcName(S.tonic + d) + (sevenths ? sev : tri);
+        const [d, tri, sev] = DEG[+k - 1], name = pcName(keyTonic() + d) + (sevenths ? sev : tri);
         player.audition(name);
         insertText(`[${name}]`);
         return;
@@ -807,7 +810,7 @@ src.addEventListener('keydown', (e) => {
   if (e.altKey && /^Digit[1-7]$/.test(e.code)) {
     e.preventDefault();
     const [d, tri, sev] = DEG[+e.code.slice(5) - 1];
-    const name = pcName(S.tonic + d) + (e.shiftKey !== sevenths ? sev : tri);
+    const name = pcName(keyTonic() + d) + (e.shiftKey !== sevenths ? sev : tri);
     player.audition(name);
     insertText(`[${name}]`);
   }

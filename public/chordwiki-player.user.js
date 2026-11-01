@@ -238,6 +238,13 @@ function beatPositions(n, MB, MU) {
 }
 
 // ------------------------------------------------------------------ score
+// the tonic (of the relative major) in effect at original text position o
+function tonicAt(S, o) {
+  let t = S.tonic;
+  for (const k of S.keys || []) if (k.o <= o) t = k.tonic;
+  return t;
+}
+
 // opts: { mode: 'auto'|'rechord'|'chordwiki', beatsPerBar: 0 (= song / project),
 //         projectTs: [4, 4], octave: 3, transpose: 0 }
 function parse(raw, opts = {}) {
@@ -245,7 +252,7 @@ function parse(raw, opts = {}) {
   const { n: N, opos: OPOS } = normalize(raw);
   const S = {
     rows: [], tokens: [], events: [], bars: [], warnings: [], barLines: [],
-    legend: { bpm: 0, ts: null, key: null, minor: false, swing8: false, swing16: false },
+    legend: { bpm: 0, ts: null, key: null, minor: false, swing8: false, swing16: false, keys: [] },
     mode: o.mode === 'rechord' ? 'rechord' : o.mode === 'chordwiki' ? 'chordwiki' : detectChordwiki(N) ? 'chordwiki' : 'rechord',
     total: 0, MB: 4, MU: 1, tonic: 0,
   };
@@ -258,9 +265,12 @@ function parse(raw, opts = {}) {
   const ctx = { N, OPOS, S, o, ms, line: 0 };
   if (S.mode === 'rechord') parseRechord(ctx); else parseChordwiki(ctx);
 
-  const L = S.legend;
-  S.tonic = L.key !== null ? (L.key + (L.minor ? 3 : 0)) % 12 : -1;
-  if (S.tonic < 0) { const t = S.tokens.find((t) => t.chord); S.tonic = t ? t.chord.rpc : 0; }
+  // each {key:} holds from its line on (the first one also before it); with
+  // none, the key is the first chord's root
+  S.keys = S.legend.keys.map((k) => ({ o: OPOS[k.at], tonic: k.tonic }));
+  if (S.keys.length) S.tonic = S.keys[0].tonic;
+  else { const t = S.tokens.find((t) => t.chord); S.tonic = t ? t.chord.rpc : 0; }
+  for (const t of S.tokens) if (t.chord) t.tonic = tonicAt(S, t.o0);
   return S;
 }
 
@@ -434,6 +444,7 @@ function readLegend(N, L, ms) {
         if (N[k] === '#') { pc++; k++; } else if (N[k] === 'b') { pc--; k++; }
         L.key = (pc + 12) % 12;
         L.minor = N[k] === 'm' && !N.startsWith('maj', k);
+        L.keys.push({ at: j, tonic: (L.key + (L.minor ? 3 : 0)) % 12 });
       }
     }
     if (!(j < le && (N.startsWith('{c:', j) || N.startsWith('{comment:', j) || N.startsWith('{ci:', j)))) continue;
