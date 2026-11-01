@@ -64,7 +64,9 @@ main { display: grid; grid-template-columns: minmax(280px, 42%) 1fr 120px; min-h
 .flow .b.barred { border-left: 1px solid var(--line); padding-left: 8px; margin-left: 2px; }
 .flow .b.barred.last { border-right: 1px solid var(--line); }
 .cell { padding: 0 10px 2px 0; }
-.cell .ly, .pre .ly { font-size: 14px; white-space: pre; margin-top: 2px; }
+.cell .ly, .pre .ly { font-size: 14px; line-height: 20px; white-space: pre; margin-top: 2px; }
+/* the chord line has one height everywhere, so lyrics line up across a row */
+.cl { height: 28px; display: flex; align-items: center; white-space: nowrap; }
 .pre { padding: 0 10px 0 0; }
 .pre .gh { color: var(--c); opacity: .55; font-size: 14px; font-weight: 700; padding: 1px 3px; border-radius: 3px; }
 .tok { font-weight: 700; font-size: 19px; color: var(--c, var(--dim)); padding: 0 4px; border-radius: 4px; cursor: pointer; white-space: nowrap; }
@@ -258,14 +260,14 @@ function renderPreview() {
     if (r.ly0 >= 0) {
       const pre = r.pre >= 0 ? S.tokens[r.pre] : null;
       const c = colorOf(pre);
-      html += `<div class="pre">${pre ? `<span class="gh" data-pre="${pre.i}"${c ? ` style="--c:${c}"` : ''}>${esc(text.slice(pre.o0, pre.o1))}</span>` : '<span class="gh">&nbsp;</span>'}<div class="ly">${esc(lyricText(text, r.ly0, r.ly1))}</div></div>`;
+      html += `<div class="pre"><div class="cl">${pre ? `<span class="gh" data-pre="${pre.i}"${c ? ` style="--c:${c}"` : ''}>${esc(text.slice(pre.o0, pre.o1))}</span>` : ''}</div><div class="ly">${esc(lyricText(text, r.ly0, r.ly1))}</div></div>`;
     }
     r.bars.forEach((b, k) => {
       const w = b.tokens.length && warnTok.has(b.tokens[0].i) ? ' warn' : '';
       html += `<div class="b${r.barred && !b.cont ? ' barred' : ''}${r.barred && k === r.bars.length - 1 ? ' last' : ''}${w}">`;
       for (const tok of b.tokens) {
         const ly = tok.ly0 >= 0 ? lyricText(text, tok.ly0, tok.ly1) : '';
-        html += `<div class="cell">${tokHtml(tok, text)}${glyphsHtml(tok)}<div class="ly">${esc(ly) || '&nbsp;'}</div></div>`;
+        html += `<div class="cell"><div class="cl">${tokHtml(tok, text)}${glyphsHtml(tok)}</div><div class="ly">${esc(ly) || '&nbsp;'}</div></div>`;
       }
       html += '</div>';
     });
