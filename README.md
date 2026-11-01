@@ -13,7 +13,7 @@ The whole app is two files, `public/index.html` and `public/engine.js`, with no 
 - Type on the left; the preview on the right and the timeline at the top update immediately
 - The preview colours each chord by its scale degree in the key and shows lyrics and note lengths under the chords
 - The timeline draws each chord as a block as long as it sounds; bars whose written lengths don't fill the meter (or overflow it) are marked in red with their length in beats
-- Plays through a small built-in synth, lighting up the current chord and the current note
+- Plays through a small built-in synth or a Web MIDI output, lighting up the current chord and the current note
 - Exports a `.mid` file that drops straight onto a DAW timeline
 - Open, save or drag in `.txt` files
 

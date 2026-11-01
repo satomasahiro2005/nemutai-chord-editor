@@ -93,6 +93,7 @@ body.dragging #drop { display: block; }
   <label>BPM <input id="bpm" type="number" min="20" max="400" step="1"></label>
   <label>移調 <input id="tr" type="number" min="-12" max="12" step="1" value="0"></label>
   <label>色 <select id="color"><option value="0">度数</option><option value="1">音名</option></select></label>
+  <label>出力 <select id="out"><option value="">内蔵音</option></select></label>
   <span id="info"></span>
   <span class="sep"></span>
   <button id="sample">サンプル</button>
@@ -676,7 +677,7 @@ src.addEventListener('blur', () => setTimeout(closeCompletion, 100));
 // ------------------------------------------------------------ playback
 // WebAudio voice, scheduled ahead like a sequencer.
 const player = {
-  on: false, pos: 0, ctx: null, master: null, t0: 0, b0: 0, next: 0, cycle: 0, voices: [], cur: [], curTok: -1, curHit: null,
+  on: false, pos: 0, ctx: null, master: null, t0: 0, b0: 0, next: 0, cycle: 0, voices: [], cur: [], curTok: -1, curHit: null, midi: null,
   bpm() { return +$('bpm').value || 120; },
   beatAt(time) { return this.b0 + (time - this.t0) * this.bpm() / 60; },
   timeAt(beat) { return this.t0 + (beat - this.b0) * 60 / this.bpm(); },
@@ -690,6 +691,7 @@ const player = {
     return this.ctx;
   },
   noteOn(n, vel, time) {
+    if (this.midi) { this.midi.send([0x90, n, vel], this.perf(time)); return { n, midi: true }; }
     const c = this.ctx, f = 440 * 2 ** ((n - 69) / 12), g = c.createGain(), a = vel / 127;
     const o1 = c.createOscillator(), o2 = c.createOscillator();
     o1.type = 'triangle'; o2.type = 'sine'; o1.frequency.value = f; o2.frequency.value = f * 2;
@@ -702,10 +704,14 @@ const player = {
     return { n, g, o: [o1, o2] };
   },
   noteOff(v, time) {
+    // Notes sent with the same timestamp can arrive in any order on Windows
+    // (a re-struck chord then loses notes), so offs go out 2 ms ahead.
+    if (v.midi) { this.midi.send([0x80, v.n, 0], Math.max(performance.now(), this.perf(time) - 2)); return; }
     v.g.gain.cancelScheduledValues(time);
     v.g.gain.setTargetAtTime(0, time, 0.08);
     for (const o of v.o) o.stop(time + 0.6);
   },
+  perf(time) { return performance.now() + (time - this.ctx.currentTime) * 1000; },
   release(time) { for (const v of this.voices) this.noteOff(v, time); this.voices = []; },
   strike(notes, vel, time) { this.release(time); this.voices = notes.map((n) => this.noteOn(n, vel, time)); },
   // a chord on its own, for writing (not tied to the song position)
@@ -925,6 +931,25 @@ document.addEventListener('keydown', (e) => {
   }
 });
 window.addEventListener('resize', () => { renderTimeline(); drawMinimap(); });
+
+// Web MIDI is opened only when the output menu is used
+let midiAsked = false;
+$('out').onfocus = $('out').onmousedown = () => {
+  if (midiAsked || !navigator.requestMIDIAccess) return;
+  midiAsked = true;
+  navigator.requestMIDIAccess().then((acc) => {
+    const fill = () => {
+      const sel = $('out'), keep = sel.value;
+      sel.innerHTML = '<option value="">内蔵音</option>' + [...acc.outputs.values()].map((o) => `<option value="${o.id}">${esc(o.name)}</option>`).join('');
+      sel.value = keep;
+    };
+    fill(); acc.onstatechange = fill;
+    $('out').onchange = () => {
+      if (player.on || player.voices.length) player.release(player.audio().currentTime);
+      player.midi = acc.outputs.get($('out').value) || null;
+    };
+  }).catch(() => {});
+};
 
 loadText(store.get('csp.text') ?? SAMPLE);
 </script>
