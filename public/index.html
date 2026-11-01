@@ -547,11 +547,19 @@ function openCompletion() {
 function typeBarline(from, to) {
   if (!chordMode) { insertText('|', from, to); return; }
   closeCompletion();
+  const bar = barlineFor(from);
   if (inBracket(from) && src.value[to] === ']') {
     insertText('', from, to);
     src.setSelectionRange(from + 1, from + 1);
-    insertText('[|]');
-  } else insertText('[|]', from, to);
+    insertText(bar);
+  } else insertText(bar, from, to);
+}
+// Lines of chords and lengths only (intros, interludes) write barlines as
+// "|"; lines with lyrics use "[|]", as ChordWiki sheets usually do.
+function barlineFor(c) {
+  const v = src.value, line = v.slice(v.lastIndexOf('\n', c - 1) + 1, c);
+  const outside = line.replace(/\[[^\]]*\]?/g, '');
+  return /[^\s|\-=>\/:'^`@;.,0-9()]/.test(outside) ? '[|]' : '|';
 }
 // a yen sign confirmed through the IME becomes a barline too
 src.addEventListener('compositionend', (e) => {
@@ -642,7 +650,7 @@ src.addEventListener('keydown', (e) => {
         return;
       }
       if (kl === 'n') t = '[N.C.]';
-      else if (OUT[k]) t = OUT[k];
+      else if (OUT[k]) t = OUT[k] === '[|]' ? barlineFor(c) : OUT[k];
       if (t) { e.preventDefault(); insertText(t); return; }
     } else {
       const open = src.value.lastIndexOf('[', c - 1), typed = src.value.slice(open + 1, c);
@@ -652,7 +660,7 @@ src.addEventListener('keydown', (e) => {
         e.preventDefault();
         closeCompletion();
         src.setSelectionRange(c + 1, c + 1);
-        insertText(OUT[k] && k !== '/' ? OUT[k] : k);
+        insertText(OUT[k] && k !== '/' ? (OUT[k] === '[|]' ? barlineFor(c + 1) : OUT[k]) : k);
         return;
       }
       // N: no chord. Inside an empty [] it fills it, at the end of a chord it
