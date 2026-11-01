@@ -25,15 +25,15 @@ The whole app is two files, `public/index.html` and `public/engine.js`, with no 
 | `[` | Closes the bracket and suggests the key's chords and the chords already in the song. ↑↓ to choose, Enter or Tab to insert |
 | Alt+1–7 | Inserts the chord on that degree (Alt+Shift for the seventh) |
 | Caret onto a chord | Plays that chord (toggle with 試聴) |
-| コード入力 (chord input) | While on, typing A–G outside brackets opens `[ ]` with suggestions, and a space, `\|` or length symbol steps out again: `C Am7 F` becomes `[C] [Am7] [F]` |
+| コード入力 (chord input) | While on, typing A–G outside brackets opens `[ ]` with suggestions, and Ctrl+Space, `\|` or a length symbol steps out again |
 | Tab / Shift+Tab | Next / previous chord |
 | Ctrl+] / Ctrl+[ | Next / previous chord, and play it |
 | Ctrl+Shift+] / [ (or D / A) | Same |
 | Ctrl+Shift+Space | Play the chord at the caret |
 | Ctrl+/ | Comment the selected lines on / off |
 | Ctrl+S / Ctrl+O | Save / open |
-| Space (outside the editor) | Plays from the chord at the caret, or stops |
-| Ctrl+Space | Play / stop from the playhead (also while typing) |
+| Space | Plays from the chord at the caret, or stops (also in the editor; an IME conversion keeps its Space) |
+| Ctrl+Space | Types a space in the editor (in chord input mode it steps out of the chord first) |
 
 In chord input mode (keys follow chordlistener's ChordWiki editor):
 
@@ -50,7 +50,7 @@ In chord input mode (keys follow chordlistener's ChordWiki editor):
 | R J K H | | `m7` `M7` `m7-5` `dim` |
 | Y L Z Q P | | `add` `aug` `sus` `omit` `+` |
 | `[` | | `()` |
-| space, `\|`, lengths | | step out of the chord first |
+| Ctrl+Space, `\|`, lengths | | step out of the chord first |
 
 Backspace just after a chord's `]` (or Delete just before its `[`) deletes inside the chord one character at a time, and the brackets go when it is empty, so `[Am]` disappears after two presses; an empty `[]` or `()` goes with one.
 

@@ -87,7 +87,7 @@ body.dragging #drop { display: block; }
 <body>
 <div id="bar">
   <span class="title" id="title">nemutai Chord Editor</span>
-  <button id="play" title="Ctrl+Space / Space でカーソル位置のコードから">再生</button>
+  <button id="play" title="Space でカーソル位置のコードから（空白は Ctrl+Space）">再生</button>
   <button id="loop" class="on">ループ</button>
   <button id="rhythm" class="on" title="書いた長さどおりに弾き直す">リズム</button>
   <label>BPM <input id="bpm" type="number" min="20" max="400" step="1"></label>
@@ -574,6 +574,15 @@ src.addEventListener('compositionend', (e) => {
     if (src.value[c - 1] === e.data) typeBarline(c - 1, c);
   });
 });
+// Ctrl+Space in the editor: a space, stepping out of a chord first in chord input mode
+function typeSpace() {
+  const c = src.selectionStart;
+  if (chordMode && src.selectionStart === src.selectionEnd && inBracket(c) && src.value[c] === ']') {
+    closeCompletion();
+    src.setSelectionRange(c + 1, c + 1);
+  }
+  insertText(' ');
+}
 // is the caret inside [..] on its line?
 function inBracket(c) {
   const line = src.value.lastIndexOf('\n', c - 1) + 1;
@@ -592,6 +601,7 @@ function acceptCompletion(i = acSel) {
 }
 ac.addEventListener('mousedown', (e) => { e.preventDefault(); const d = e.target.closest('[data-i]'); if (d) acceptCompletion(+d.dataset.i); });
 src.addEventListener('keydown', (e) => {
+  if (e.code === 'Space' && !e.isComposing && !e.ctrlKey && !e.altKey && !e.metaKey && !e.shiftKey) return;
   if (acItems.length && ac.style.display === 'block') {
     if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
       e.preventDefault();
@@ -978,10 +988,12 @@ document.addEventListener('keydown', (e) => {
     if (e.code === 'KeyS' && !e.shiftKey) { e.preventDefault(); $('save').click(); return; }
     if (e.code === 'KeyO' && !e.shiftKey) { e.preventDefault(); $('open').click(); return; }
   }
-  // Ctrl+Space: play / stop from where the playhead is (works while typing)
-  if (e.ctrlKey && e.code === 'Space') { e.preventDefault(); $('play').click(); return; }
-  // Space outside the editor: play from the chord at the caret, or stop
-  if (e.code === 'Space' && document.activeElement !== src && !['INPUT', 'SELECT', 'BUTTON'].includes(document.activeElement.tagName)) {
+  // Space plays from the chord at the caret (or stops), also in the editor;
+  // Ctrl+Space types the space there instead. An IME conversion keeps its Space.
+  if (e.code === 'Space' && !e.isComposing && !e.altKey && !e.metaKey && !e.shiftKey) {
+    const inEditor = document.activeElement === src;
+    if (e.ctrlKey) { if (inEditor) { e.preventDefault(); typeSpace(); } return; }
+    if (!inEditor && ['INPUT', 'SELECT', 'BUTTON'].includes(document.activeElement.tagName)) return;
     e.preventDefault();
     if (player.on) { player.stop(); return; }
     const t = tokAtCaret();
