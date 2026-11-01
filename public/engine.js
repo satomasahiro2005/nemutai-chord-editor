@@ -683,6 +683,9 @@ function parseChordwiki(ctx) {
       p++;
     }
     if (!(W.slots.length && W.lineBarred && nextContinues(pos))) finishBar();
+    // the faint chord over a pickup only makes sense when chords follow on the line
+    const lr = lastRow(S);
+    if (lr && W.rowLine === ctx.line && lr.pre >= 0 && !lr.bars.length) lr.pre = -1;
   }
   finishBar();
   S.total = W.barN;

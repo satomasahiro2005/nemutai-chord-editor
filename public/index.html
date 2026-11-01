@@ -56,7 +56,7 @@ main { display: grid; grid-template-columns: minmax(280px, 42%) 1fr 120px; min-h
 .blank { height: 10px; }
 .grid { display: flex; }
 .grid .b { flex: 1; position: relative; height: 54px; border-left: 1px solid var(--line); min-width: 0; }
-.grid .b:last-child { border-right: 1px solid var(--line); }
+.grid .b.end { border-right: 1px solid var(--line); }
 .grid .b.short { height: 40px; }
 .grid .g { position: absolute; top: 33px; font-size: 13px; }
 .flow { display: flex; flex-wrap: wrap; align-items: flex-start; padding: 4px 0; }
@@ -237,9 +237,9 @@ function renderPreview() {
       for (let i = 0; i < r.bars.length; i += per) {
         html += '<div class="row grid">';
         const bars = r.bars.slice(i, i + per);
-        for (const b of bars) {
+        for (const [bi, b] of bars.entries()) {
           const w = b.tokens.length && warnTok.has(b.tokens[0].i) ? ' warn' : '';
-          html += `<div class="b${has ? '' : ' short'}${w}">`;
+          html += `<div class="b${has ? '' : ' short'}${w}${bi === bars.length - 1 ? ' end' : ''}">`;
           for (const tok of b.tokens) {
             const x = tok.t >= 0 ? (tok.t / b.len) * 100 : 96;
             html += `<span style="position:absolute;left:calc(${x}% + 4px);top:8px">${tokHtml(tok, text)}</span>`;
