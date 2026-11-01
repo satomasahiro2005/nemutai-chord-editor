@@ -412,6 +412,9 @@ function stepChord(dir, play) {
   if (dir > 0) t = chords.find((x) => x.o0 > c) || chords[chords.length - 1];
   else { const start = cur && cur.o0 < c ? cur.o0 : c; t = [...chords].reverse().find((x) => x.o0 < start) || chords[0]; }
   goToSource(t);
+  // the playhead follows (playback, if running, jumps there)
+  const first = S.events.find((e) => e.tok === t);
+  if (first) player.seek(first.t);
   if (play && t.chord) player.audition(src.value.slice(t.o0, t.o1));
 }
 // "#" at the start of the selected lines, on or off
@@ -839,6 +842,9 @@ const player = {
     this.pos = Math.max(0, Math.min(b, S.total));
     if (this.on) { this.t0 = this.ctx.currentTime + 0.03; this.b0 = this.pos; this.reschedule(); }
     drawPlayhead();
+    // keep the playhead in view on the timeline
+    const x = 12 + this.pos * view.pxq;
+    if (x < tlwrap.scrollLeft + 40 || x > tlwrap.scrollLeft + tlwrap.clientWidth - 80) tlwrap.scrollLeft = x - tlwrap.clientWidth / 3;
   },
   frame() {
     if (!this.on) return;
