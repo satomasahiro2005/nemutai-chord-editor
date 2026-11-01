@@ -25,6 +25,7 @@ The whole app is two files, `public/index.html` and `public/engine.js`, with no 
 | `[` | Closes the bracket and suggests the key's chords and the chords already in the song. ↑↓ to choose, Enter or Tab to insert |
 | Alt+1–7 | Inserts the chord on that degree (Alt+Shift for the seventh) |
 | Caret onto a chord | Plays that chord (toggle with 試聴) |
+| コード入力 (chord input) | While on, typing A–G outside brackets opens `[ ]` with suggestions, and a space, `\|` or length symbol steps out again: `C Am7 F` becomes `[C] [Am7] [F]` |
 | Ctrl+Space | Plays from the chord at the caret, or stops |
 | Space | Play / stop (outside the editor) |
 

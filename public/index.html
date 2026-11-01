@@ -445,7 +445,7 @@ const FLAT = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B'];
 const DEG = [[0, '', 'M7', 'I'], [2, 'm', 'm7', 'ii'], [4, 'm', 'm7', 'iii'], [5, '', 'M7', 'IV'],
              [7, '', '7', 'V'], [9, 'm', 'm7', 'vi'], [11, 'm7b5', 'm7b5', 'vii']];
 const EXTRA = [[2, '7', 'V/V'], [4, '7', 'V/vi'], [9, '7', 'V/ii'], [5, 'm', 'iv'], [10, '', '♭VII', true]];
-let sevenths = store.get('csp.7th') === '1', audition = store.get('csp.aud') !== '0';
+let sevenths = store.get('csp.7th') === '1', audition = store.get('csp.aud') !== '0', chordMode = store.get('csp.cmode') === '1';
 const pcName = (pc, flat = false) => (flat || [5, 10, 3, 8, 1, 6].includes(S.tonic) ? FLAT : SHARP)[(pc + 12) % 12];
 function keyChords() {
   const T = S.tonic;
@@ -455,7 +455,7 @@ function keyChords() {
 const pcColor = (pc) => PAL[$('color').value === '1' ? pc : (pc - S.tonic + 12) % 12];
 let palKey = '';
 function renderPalette() {
-  const key = `${S.tonic}|${sevenths}|${$('color').value}|${audition}`;
+  const key = `${S.tonic}|${sevenths}|${$('color').value}|${audition}|${chordMode}`;
   if (key === palKey) return;
   palKey = key;
   const btn = (c) => `<button class="ch" data-ins="[${c.name}]" style="--c:${pcColor(c.pc)}" title="${c.lab}">${esc(c.name)}<small>${c.lab}</small></button>`;
@@ -465,6 +465,7 @@ function renderPalette() {
     [['|', '小節線'], ['----', '2拍'], ['--', '1拍'], ['-', '8分'], ['=', '16分'], ['>', 'アクセント']]
       .map(([t, tt]) => `<button class="sym" data-ins="${t}" title="${tt}">${esc(t)}</button>`).join('') +
     '<span class="gap"></span>' +
+    `<button id="cmode" class="${chordMode ? 'on' : ''}" title="A〜G を打つと [ ] を付ける">コード入力</button>` +
     `<button id="sev" class="${sevenths ? 'on' : ''}" title="セブンスにする">7th</button>` +
     `<button id="aud" class="${audition ? 'on' : ''}" title="カーソルの下のコードを鳴らす">試聴</button>`;
 }
@@ -472,6 +473,7 @@ $('pal').addEventListener('mousedown', (e) => e.preventDefault());   // keep the
 $('pal').addEventListener('click', (e) => {
   const b = e.target.closest('button');
   if (!b) return;
+  if (b.id === 'cmode') { chordMode = !chordMode; store.set('csp.cmode', chordMode ? '1' : '0'); renderPalette(); return; }
   if (b.id === 'sev') { sevenths = !sevenths; store.set('csp.7th', sevenths ? '1' : '0'); renderPalette(); return; }
   if (b.id === 'aud') { audition = !audition; store.set('csp.aud', audition ? '1' : '0'); renderPalette(); return; }
   const ins = b.dataset.ins;
@@ -519,6 +521,12 @@ function openCompletion() {
   ac.style.top = 10 + row * lh - src.scrollTop + 2 + 'px';
   ac.style.display = 'block';
 }
+// is the caret inside [..] on its line?
+function inBracket(c) {
+  const line = src.value.lastIndexOf('\n', c - 1) + 1;
+  const open = src.value.lastIndexOf('[', c - 1);
+  return open >= line && !src.value.slice(open, c).includes(']');
+}
 function closeCompletion() { ac.style.display = 'none'; acItems = []; }
 function acceptCompletion(i = acSel) {
   const name = acItems[i];
@@ -540,6 +548,25 @@ src.addEventListener('keydown', (e) => {
     }
     if (e.key === 'Enter' || e.key === 'Tab') { e.preventDefault(); acceptCompletion(); return; }
     if (e.key === 'Escape') { closeCompletion(); return; }
+  }
+  // chord input mode: A-G outside brackets opens a chord, and a space,
+  // barline or length symbol typed inside one steps out of it first
+  if (chordMode && !e.isComposing && !e.ctrlKey && !e.altKey && !e.metaKey && e.key.length === 1) {
+    const c = src.selectionStart, open = inBracket(c);
+    if (!open && /^[A-G]$/.test(e.key) && src.selectionStart === src.selectionEnd) {
+      e.preventDefault();
+      insertText('[' + e.key + ']');
+      src.setSelectionRange(src.selectionStart - 1, src.selectionStart - 1);
+      setTimeout(openCompletion);
+      return;
+    }
+    if (open && ' |-=>　'.includes(e.key) && src.value[c] === ']') {
+      e.preventDefault();
+      closeCompletion();
+      src.setSelectionRange(c + 1, c + 1);
+      insertText(e.key);
+      return;
+    }
   }
   // "[" brings its "]"; typing "]" in front of one just steps over it
   if (e.key === '[' && !e.isComposing) {
