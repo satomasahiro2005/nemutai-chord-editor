@@ -1033,7 +1033,15 @@ function exportMidi() {
   const u32 = (n) => [(n >>> 24) & 255, (n >>> 16) & 255, (n >>> 8) & 255, n & 255];
   const bytes = new Uint8Array([0x4d, 0x54, 0x68, 0x64, ...u32(6), 0, 0, 0, 1, tpq >> 8, tpq & 255,
                                 0x4d, 0x54, 0x72, 0x6b, ...u32(data.length), ...data]);
-  download(new Blob([bytes], { type: 'audio/midi' }), fileName.replace(/\.txt$/i, '') + '.mid');
+  download(new Blob([bytes], { type: 'audio/midi' }), saveName('.mid'));
+}
+// "Title - Artist" from {title:} and {subtitle:}, else the opened file's name
+function saveName(ext) {
+  const tag = (re) => (src.value.match(re)?.[1] ?? '').trim();
+  const title = tag(/^\s*\{(?:title|t):([^}]*)\}/m), artist = tag(/^\s*\{(?:subtitle|st):([^}]*)\}/m);
+  let base = title ? (artist ? `${title} - ${artist}` : title) : fileName.replace(/\.[^.]*$/, '');
+  base = base.replace(/[\\/:*?"<>|\x00-\x1f]/g, '_').replace(/[. ]+$/, '').slice(0, 120) || 'chords';
+  return base + ext;
 }
 function download(blob, name) {
   const a = document.createElement('a');
@@ -1051,7 +1059,7 @@ function loadText(text, name) {
 $('open').onclick = () => $('file').click();
 $('sample').onclick = () => loadText(SAMPLE, 'chords.txt');
 $('file').onchange = async (e) => { const f = e.target.files[0]; if (f) loadText(await f.text(), f.name); e.target.value = ''; };
-$('save').onclick = () => download(new Blob([src.value], { type: 'text/plain' }), fileName);
+$('save').onclick = () => download(new Blob([src.value], { type: 'text/plain' }), saveName('.txt'));
 $('mid').onclick = exportMidi;
 document.addEventListener('dragover', (e) => { e.preventDefault(); document.body.classList.add('dragging'); });
 document.addEventListener('dragleave', (e) => { if (!e.relatedTarget) document.body.classList.remove('dragging'); });
