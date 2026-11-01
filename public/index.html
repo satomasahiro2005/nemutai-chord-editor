@@ -1003,24 +1003,33 @@ document.addEventListener('keydown', (e) => {
 });
 window.addEventListener('resize', () => { renderTimeline(); drawMinimap(); });
 
-// Web MIDI is opened only when the output menu is used
+// Web MIDI is opened only when the output menu is used, or on load when a
+// MIDI output was chosen last time (it is remembered across reloads)
 let midiAsked = false;
-$('out').onfocus = $('out').onmousedown = () => {
+function openMidi() {
   if (midiAsked || !navigator.requestMIDIAccess) return;
   midiAsked = true;
   navigator.requestMIDIAccess().then((acc) => {
+    const want = store.get('csp.out'), wantName = store.get('csp.outName');
     const fill = () => {
-      const sel = $('out'), keep = sel.value;
-      sel.innerHTML = '<option value="">内蔵音</option>' + [...acc.outputs.values()].map((o) => `<option value="${o.id}">${esc(o.name)}</option>`).join('');
-      sel.value = keep;
+      const sel = $('out'), outs = [...acc.outputs.values()];
+      sel.innerHTML = '<option value="">内蔵音</option>' + outs.map((o) => `<option value="${o.id}">${esc(o.name)}</option>`).join('');
+      // the same port again (ids can change between sessions, so fall back to the name)
+      const o = outs.find((x) => x.id === (player.midi ? player.midi.id : want)) || (!player.midi && want ? outs.find((x) => x.name === wantName) : null);
+      sel.value = o ? o.id : '';
+      player.midi = o || null;
     };
     fill(); acc.onstatechange = fill;
     $('out').onchange = () => {
       if (player.on || player.voices.length) player.release(player.audio().currentTime);
       player.midi = acc.outputs.get($('out').value) || null;
+      store.set('csp.out', player.midi ? player.midi.id : '');
+      store.set('csp.outName', player.midi ? player.midi.name : '');
     };
   }).catch(() => {});
-};
+}
+$('out').onfocus = $('out').onmousedown = openMidi;
+if (store.get('csp.out')) openMidi();
 
 loadText(store.get('csp.text') ?? SAMPLE);
 </script>
