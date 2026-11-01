@@ -504,7 +504,7 @@ $('pal').addEventListener('click', (e) => {
 function insertText(t, from = src.selectionStart, to = src.selectionEnd) {
   src.focus();
   src.setSelectionRange(from, to);
-  if (!document.execCommand('insertText', false, t)) {
+  if (!(t === '' ? document.execCommand('delete') : document.execCommand('insertText', false, t))) {
     src.setRangeText(t, from, to, 'end');
     src.dispatchEvent(new Event('input'));
   }
@@ -570,13 +570,18 @@ src.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') { closeCompletion(); return; }
   }
   if (e.key === 'Tab' && !e.ctrlKey && !e.altKey) { e.preventDefault(); stepChord(e.shiftKey ? -1 : 1, audition); return; }
+  // Backspace on "[" of "[]" (or "(" of "()") removes the pair
+  if (e.key === 'Backspace' && !e.ctrlKey && src.selectionStart === src.selectionEnd) {
+    const c = src.selectionStart, pair = src.value.slice(c - 1, c + 1);
+    if (pair === '[]' || pair === '()') { e.preventDefault(); closeCompletion(); insertText('', c - 1, c + 1); return; }
+  }
   // chord input mode (keys as in chordlistener's editor): outside a chord,
   // A-G opens one and a few keys give barlines and lengths; inside, single
   // letters type the common parts of a chord name
   if (chordMode && !e.isComposing && !e.ctrlKey && !e.altKey && !e.metaKey && e.key.length === 1 &&
       src.selectionStart === src.selectionEnd) {
     const c = src.selectionStart, k = e.key, kl = k.toLowerCase();
-    const OUT = { '\\': '|', '/': '|', '^': '=', '`': '=', ':': '----', "'": '----', ';': '>', '@': '>' };
+    const OUT = { '|': '[|]', '\\': '[|]', '/': '[|]', '^': '=', '`': '=', ':': '----', "'": '----', ';': '>', '@': '>' };
     const IN = { w: '#', f: 'b', x: '##', v: 'bb', k: 'm7-5', y: 'add', l: 'aug', z: 'sus', j: 'M7', q: 'omit', r: 'm7', p: '+', h: 'dim' };
     if (!inBracket(c)) {
       let t = null;
@@ -602,7 +607,7 @@ src.addEventListener('keydown', (e) => {
       const open = src.value.lastIndexOf('[', c - 1), typed = src.value.slice(open + 1, c);
       const atEnd = src.value[c] === ']';
       // a space, barline or length steps out of the chord first ("/" stays: slash chords)
-      if (atEnd && (' |-=>　'.includes(k) || (OUT[k] && k !== '/'))) {
+      if (atEnd && (' -=>　'.includes(k) || (OUT[k] && k !== '/'))) {
         e.preventDefault();
         closeCompletion();
         src.setSelectionRange(c + 1, c + 1);
