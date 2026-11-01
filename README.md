@@ -2,6 +2,8 @@
 
 https://chord.nemut.ai/
 
+![nemutai Chord Editor playing a ChordWiki sheet: editor on the left, preview with the current chord lit on the right, timeline on top](docs/screenshot.jpg)
+
 An editor for chord sheets in ChordWiki format that plays them along a timeline as you write. It also reads rechord notation.
 
 The whole app is two files, `public/index.html` and `public/engine.js`, with no build step and no dependencies. Your text is saved in your browser only and is never sent anywhere.
