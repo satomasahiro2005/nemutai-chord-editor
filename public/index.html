@@ -793,7 +793,12 @@ const player = {
     return this.ctx;
   },
   noteOn(n, vel, time) {
-    if (this.midi) { this.midi.send([0x90, n, vel], this.perf(time)); return { n, midi: true }; }
+    if (this.midi) {
+      const at = this.perf(time);
+      this.midi.send([0x90, n, vel], at);
+      this.lastSched = Math.max(this.lastSched || 0, at);
+      return { n, midi: true, at };
+    }
     const c = this.ctx, f = 440 * 2 ** ((n - 69) / 12), g = c.createGain(), a = vel / 127;
     const o1 = c.createOscillator(), o2 = c.createOscillator();
     o1.type = 'triangle'; o2.type = 'sine'; o1.frequency.value = f; o2.frequency.value = f * 2;
@@ -808,7 +813,15 @@ const player = {
   noteOff(v, time) {
     // Notes sent with the same timestamp can arrive in any order on Windows
     // (a re-struck chord then loses notes), so offs go out 2 ms ahead.
-    if (v.midi) { this.midi.send([0x80, v.n, 0], Math.max(performance.now(), this.perf(time) - 2)); return; }
+    // Note-ons go out up to 0.12 s ahead, so a note-off must not be timed before
+    // its own note-on (stopping right away left notes hanging); otherwise it
+    // goes 2 ms ahead of the next note-ons.
+    if (v.midi) {
+      const at = Math.max(performance.now(), this.perf(time) - 2, v.at + 1);
+      this.midi.send([0x80, v.n, 0], at);
+      this.lastSched = Math.max(this.lastSched || 0, at);
+      return;
+    }
     v.g.gain.cancelScheduledValues(time);
     v.g.gain.setTargetAtTime(0, time, 0.08);
     for (const o of v.o) o.stop(time + 0.6);
@@ -852,6 +865,8 @@ const player = {
     this.on = false;
     clearInterval(this.timer);
     if (this.ctx) this.release(this.ctx.currentTime);
+    // and All Notes Off after everything already scheduled
+    if (this.midi) this.midi.send([0xb0, 123, 0], Math.max(performance.now(), (this.lastSched || 0) + 2));
     $('play').textContent = '再生'; $('play').classList.remove('on');
     this.mark(-1, null);
   },
@@ -1056,6 +1071,7 @@ function openMidi() {
     fill(); acc.onstatechange = fill;
     $('out').onchange = () => {
       if (player.on || player.voices.length) player.release(player.audio().currentTime);
+      if (player.midi) player.midi.send([0xb0, 123, 0], Math.max(performance.now(), (player.lastSched || 0) + 2));
       player.midi = acc.outputs.get($('out').value) || null;
       store.set('csp.out', player.midi ? player.midi.id : '');
       store.set('csp.outName', player.midi ? player.midi.name : '');
