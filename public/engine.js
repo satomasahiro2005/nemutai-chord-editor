@@ -504,7 +504,8 @@ function parseChordwiki(ctx) {
         len = Math.max(MBU, t);
       }
       bar.len = len;
-      bar.closed = closed;
+      // closed on a later line (after a pickup lyric): the line above stays open
+      bar.closed = closed && bar.row === S.rows.length - 1;
       // a bar whose written lengths do not fill (or overflow) the meter
       if (t !== null && Math.abs(t - MBU) > 1e-6) {
         S.warnings.push({ start: W.barN, written: t, meter: MBU, tok: sl[0].tok });
