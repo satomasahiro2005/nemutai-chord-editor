@@ -589,15 +589,14 @@ function openCompletion() {
   ac.style.top = 10 + row * lh - src.scrollTop + 2 + 'px';
   ac.style.display = 'block';
 }
-// a barline in place of [from, to): "[|]" in chord input mode (stepping out of
-// a chord first), "|" otherwise
+// a barline in place of [from, to), stepping out of a chord first: "[|]" in
+// chord input mode, "|" otherwise. Into an empty "[]" it goes inside.
 function typeBarline(from, to) {
-  if (!chordMode) { insertText('|', from, to); return; }
   closeCompletion();
-  const bar = barlineFor(from);
+  const bar = chordMode ? barlineFor(from) : '|';
   if (inEmptyBar(from) && src.value[to] === ']') insertText('|', from, to);
   else if (inBracket(from) && src.value[to] === ']') {
-    insertText('', from, to);
+    if (from !== to) insertText('', from, to);
     src.setSelectionRange(from + 1, from + 1);
     insertText(bar);
   } else insertText(bar, from, to);
@@ -697,6 +696,13 @@ src.addEventListener('keydown', (e) => {
     if (open >= 0 && v[open + 2] === ']' && c === open + (e.key === 'Backspace' ? 2 : 1)) {
       e.preventDefault(); closeCompletion(); insertText('', open, open + 3); return;
     }
+  }
+  // "|" at the end of a chord steps out of it, in either mode
+  if (e.key === '|' && !e.isComposing && !e.ctrlKey && !e.altKey && !e.metaKey &&
+      src.selectionStart === src.selectionEnd && inBracket(src.selectionStart) && src.value[src.selectionStart] === ']') {
+    e.preventDefault();
+    typeBarline(src.selectionStart, src.selectionStart);
+    return;
   }
   // chord input mode (keys as in chordlistener's editor): outside a chord,
   // A-G opens one and a few keys give barlines and lengths; inside, single
