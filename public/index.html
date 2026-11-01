@@ -1047,7 +1047,14 @@ document.addEventListener('drop', async (e) => {
   const f = e.dataTransfer.files[0];
   if (f) loadText(await f.text(), f.name);
 });
-$('play').onclick = () => (player.on ? player.stop() : player.start());
+// play from the chord at the caret, or stop (the play button and Space)
+function playOrStop() {
+  if (player.on) { player.stop(); return; }
+  const t = tokAtCaret();
+  player.pos = t ? firstEventOf(t) : 0;
+  player.start();
+}
+$('play').onclick = playOrStop;
 for (const id of ['loop', 'rhythm']) $(id).onclick = () => { $(id).classList.toggle('on'); };
 let bpmTouched = false;
 $('bpm').oninput = () => { bpmTouched = true; if (player.on) { player.t0 = player.ctx.currentTime; player.b0 = player.pos; } };
@@ -1080,10 +1087,7 @@ document.addEventListener('keydown', (e) => {
     if (e.ctrlKey) { if (inEditor) { e.preventDefault(); typeSpace(); } return; }
     if (!inEditor && ['INPUT', 'SELECT', 'BUTTON'].includes(document.activeElement.tagName)) return;
     e.preventDefault();
-    if (player.on) { player.stop(); return; }
-    const t = tokAtCaret();
-    player.pos = t ? firstEventOf(t) : 0;
-    player.start();
+    playOrStop();
   }
 });
 window.addEventListener('resize', () => { renderTimeline(); drawMinimap(); });
