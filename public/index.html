@@ -703,10 +703,19 @@ src.addEventListener('keydown', (e) => {
   // letters type the common parts of a chord name
   if (chordMode && !e.isComposing && !e.ctrlKey && !e.altKey && !e.metaKey && e.key.length === 1 &&
       src.selectionStart === src.selectionEnd) {
-    const c = src.selectionStart, k = e.key, kl = k.toLowerCase();
+    let c = src.selectionStart;
+    const k = e.key, kl = k.toLowerCase();
     const OUT = { '|': '[|]', '\\': '[|]', '/': '[|]', '^': '=', '`': '=', ':': '----', "'": '----', ';': '>', '@': '>' };
     const IN = { w: '#', f: 'b', x: '##', v: 'bb', k: 'm7-5', y: 'add', l: 'aug', z: 'sus', j: 'M7', q: 'omit', r: 'm7', p: '+', h: 'dim' };
-    if (!inBracket(c)) {
+    // a root or degree at the end of "[|]" or "[----]" starts a new chord after it
+    let inside = inBracket(c);
+    if (inside && src.value[c] === ']' && /^[a-g1-7]$/i.test(k) &&
+        /^[|:\-=> ]+$/.test(src.value.slice(src.value.lastIndexOf('[', c - 1) + 1, c))) {
+      closeCompletion();
+      src.setSelectionRange(++c, c);
+      inside = false;
+    }
+    if (!inside) {
       let t = null;
       if (/^[a-g]$/i.test(k)) {
         e.preventDefault();
@@ -753,6 +762,13 @@ src.addEventListener('keydown', (e) => {
         closeCompletion();
         if (typed === '') insertText('N.C.');
         else { src.setSelectionRange(c + 1, c + 1); insertText('[N.C.]'); }
+        return;
+      }
+      // a letter in an empty "[]" is the root
+      if (/^[a-g]$/i.test(k) && typed === '' && atEnd) {
+        e.preventDefault();
+        insertText(k.toUpperCase());
+        setTimeout(openCompletion);
         return;
       }
       let t = null;
