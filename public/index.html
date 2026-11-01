@@ -595,7 +595,8 @@ function typeBarline(from, to) {
   if (!chordMode) { insertText('|', from, to); return; }
   closeCompletion();
   const bar = barlineFor(from);
-  if (inBracket(from) && src.value[to] === ']') {
+  if (inEmptyBar(from) && src.value[to] === ']') insertText('|', from, to);
+  else if (inBracket(from) && src.value[to] === ']') {
     insertText('', from, to);
     src.setSelectionRange(from + 1, from + 1);
     insertText(bar);
@@ -624,6 +625,11 @@ function typeSpace() {
     src.setSelectionRange(c + 1, c + 1);
   }
   insertText(' ');
+}
+// is the caret inside an empty "[]" (or "[|]"), where a barline goes in?
+function inEmptyBar(c) {
+  if (!inBracket(c)) return false;
+  return /^\|?$/.test(src.value.slice(src.value.lastIndexOf('[', c - 1) + 1, c));
 }
 // is the caret inside [..] on its line?
 function inBracket(c) {
@@ -723,6 +729,10 @@ src.addEventListener('keydown', (e) => {
     } else {
       const open = src.value.lastIndexOf('[', c - 1), typed = src.value.slice(open + 1, c);
       const atEnd = src.value[c] === ']';
+      // a barline typed into an empty "[]" goes inside it ("[|]", "[||]")
+      if (atEnd && OUT[k] === '[|]' && k !== '/' && /^\|?$/.test(typed)) {
+        e.preventDefault(); closeCompletion(); insertText('|'); return;
+      }
       // a space, barline or length steps out of the chord first ("/" stays: slash chords)
       if (atEnd && (' -=>　'.includes(k) || (OUT[k] && k !== '/'))) {
         e.preventDefault();
