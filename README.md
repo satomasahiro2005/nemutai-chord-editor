@@ -54,6 +54,10 @@ In chord input mode (keys follow chordlistener's ChordWiki editor):
 
 Backspace just after a chord's `]` (or Delete just before its `[`) removes the whole `[Am]`; inside the brackets, keys edit one character at a time, and an empty `[]` or `()` goes with its last character.
 
+### Web MIDI on Windows 11
+
+With Windows MIDI Services (Windows 11 25H2 and later) Chrome's default MIDI backend can deadlock while sending if any MIDI input receives data at the same time, and the whole browser stops responding. Turn on `chrome://flags/#use-winrt-midi-api` (Use Windows Runtime MIDI API) before choosing a MIDI output.
+
 ## ChordWiki format
 
 ```
