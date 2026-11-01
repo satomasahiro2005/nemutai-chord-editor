@@ -593,20 +593,13 @@ function openCompletion() {
 // chord input mode, "|" otherwise. Into an empty "[]" it goes inside.
 function typeBarline(from, to) {
   closeCompletion();
-  const bar = chordMode ? barlineFor(from) : '|';
+  const bar = chordMode ? '[|]' : '|';
   if (inEmptyBar(from) && src.value[to] === ']') insertText('|', from, to);
   else if (inBracket(from) && src.value[to] === ']') {
     if (from !== to) insertText('', from, to);
     src.setSelectionRange(from + 1, from + 1);
     insertText(bar);
   } else insertText(bar, from, to);
-}
-// Lines of chords and lengths only (intros, interludes) write barlines as
-// "|"; lines with lyrics use "[|]", as ChordWiki sheets usually do.
-function barlineFor(c) {
-  const v = src.value, line = v.slice(v.lastIndexOf('\n', c - 1) + 1, c);
-  const outside = line.replace(/\[[^\]]*\]?/g, '');
-  return /[^\s|\-=>\/:'^`@;.,0-9()]/.test(outside) ? '[|]' : '|';
 }
 // a yen sign confirmed through the IME becomes a barline too
 src.addEventListener('compositionend', (e) => {
@@ -697,11 +690,12 @@ src.addEventListener('keydown', (e) => {
       e.preventDefault(); closeCompletion(); insertText('', open, open + 3); return;
     }
   }
-  // "|" at the end of a chord steps out of it, in either mode
+  // "|" at the end of a chord steps out of it; in chord input mode it is "[|]" everywhere
+  const atChordEnd = inBracket(src.selectionStart) && src.value[src.selectionEnd] === ']';
   if (e.key === '|' && !e.isComposing && !e.ctrlKey && !e.altKey && !e.metaKey &&
-      src.selectionStart === src.selectionEnd && inBracket(src.selectionStart) && src.value[src.selectionStart] === ']') {
+      (chordMode ? !inBracket(src.selectionStart) || atChordEnd : atChordEnd && !inEmptyBar(src.selectionStart))) {
     e.preventDefault();
-    typeBarline(src.selectionStart, src.selectionStart);
+    typeBarline(src.selectionStart, src.selectionEnd);
     return;
   }
   // chord input mode (keys as in chordlistener's editor): outside a chord,
@@ -730,7 +724,7 @@ src.addEventListener('keydown', (e) => {
         return;
       }
       if (kl === 'n') t = '[N.C.]';
-      else if (OUT[k]) t = OUT[k] === '[|]' ? barlineFor(c) : OUT[k];
+      else if (OUT[k]) t = OUT[k];
       if (t) { e.preventDefault(); insertText(t); return; }
     } else {
       const open = src.value.lastIndexOf('[', c - 1), typed = src.value.slice(open + 1, c);
@@ -749,7 +743,7 @@ src.addEventListener('keydown', (e) => {
         e.preventDefault();
         closeCompletion();
         src.setSelectionRange(c + 1, c + 1);
-        insertText(OUT[k] && k !== '/' ? (OUT[k] === '[|]' ? barlineFor(c + 1) : OUT[k]) : k);
+        insertText(OUT[k] && k !== '/' ? OUT[k] : k);
         return;
       }
       // N: no chord. Inside an empty [] it fills it, at the end of a chord it
