@@ -9,5 +9,5 @@
     "deploy": "node scripts/build-userscript.mjs && wrangler deploy",
     "build": "node scripts/build-userscript.mjs"
   },
-  "version": "0.1.0"
+  "version": "0.2.0"
 }

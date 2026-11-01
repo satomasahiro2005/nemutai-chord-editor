@@ -60,9 +60,9 @@ With Windows MIDI Services (Windows 11 25H2 and later) Chrome's default MIDI bac
 
 ## On ChordWiki pages (userscript)
 
-With a userscript manager (Tampermonkey, Violentmonkey) installed, open https://chord.nemut.ai/chordwiki-player.user.js to install. On a ChordWiki song page it colours the chords by degree and adds a bar at the bottom that plays the sheet along a timeline and lights up the chord being played. The **nemutai** button opens this editor's view (timeline, preview, minimap, player) over the page instead; the choice is remembered.
+With a userscript manager (Tampermonkey, Violentmonkey) installed, open https://chord.nemut.ai/chordwiki-player.user.js to install. A ChordWiki song page is then replaced by this editor's view (timeline, preview, minimap, player) under a thin strip that keeps ChordWiki's menu, its own transposition and ♯/♭ spelling, the rating, tags and the video link.
 
-The script reads the sheet already shown on the page. Nothing is fetched, saved or sent anywhere: ChordWiki allows its lyrics to be shown on the site, not copied out of it. Build it with `npm run build` (`userscript/chordwiki.js` + `public/engine.js`).
+The script reads the sheet already shown on the page and hands it to the view inside the browser. Nothing is fetched, saved or sent anywhere: ChordWiki allows its lyrics to be shown on the site, not copied out of it. Build it with `npm run build` (`userscript/chordwiki.js` + `public/engine.js`).
 
 ## ChordWiki format
 

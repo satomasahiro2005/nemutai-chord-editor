@@ -93,6 +93,7 @@ main { display: grid; grid-template-columns: var(--left, 42%) 6px 1fr 120px; min
 body.dragging #drop { display: block; }
 body.embed #left, body.embed #split, body.embed #open, body.embed #save, body.embed #sample, body.embed #mid { display: none; }
 body.embed main { grid-template-columns: 1fr 120px; }
+body.embed label:has(#tr) { display: none; }   /* ChordWiki's own transposition renames the chords */
 @media (max-width: 800px) { main { grid-template-columns: 1fr; grid-template-rows: 45vh 1fr; } #mm, #split { display: none; } #left { border-bottom: 1px solid var(--line); } }
 </style>
 </head>
