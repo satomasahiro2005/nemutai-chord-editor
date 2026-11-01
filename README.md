@@ -52,7 +52,7 @@ In chord input mode (keys follow chordlistener's ChordWiki editor):
 | `[` | | `()` |
 | space, `\|`, lengths | | step out of the chord first |
 
-Backspace on the `[` of an empty `[]` (or the `(` of `()`) removes both, and deleting the last character of a chord removes its brackets with it.
+Backspace just after a chord's `]` (or Delete just before its `[`) removes the whole `[Am]`; inside the brackets, keys edit one character at a time, and an empty `[]` or `()` goes with its last character.
 
 ## ChordWiki format
 
