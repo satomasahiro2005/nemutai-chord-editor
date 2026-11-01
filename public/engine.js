@@ -575,11 +575,6 @@ function parseChordwiki(ctx) {
     s.hits.push({ off: s.dur, acc: m.acc, dh });
     s.dur += q; s.expl = true;
   };
-  // does the line starting at j begin with a barline (closing the bar left open above)?
-  const nextOpensWithBarline = (j) => {
-    while (j < N.length && N[j] === ' ') j++;
-    return N[j] === '|' || N.startsWith('[|', j) || (N[j] === ':' && N[j + 1] === '|');
-  };
   const isSpaceLike = (c) => c === ' ' || c === '|' || c === '[' || c === ']';
   const nextContinues = (j) => {
     if (N[j] === '#') return false;
@@ -694,7 +689,8 @@ function parseChordwiki(ctx) {
       }
       p++;
     }
-    if (!(W.slots.length && W.lineBarred && nextContinues(pos))) finishBar(nextOpensWithBarline(pos));
+    // a bar that ends with its line is drawn closed; only one carried over to the next line stays open
+    if (!(W.slots.length && W.lineBarred && nextContinues(pos))) finishBar(true);
     // the faint chord over a pickup only makes sense when chords follow on the line
     const lr = lastRow(S);
     if (lr && W.rowLine === ctx.line && lr.pre >= 0 && !lr.bars.length) lr.pre = -1;
