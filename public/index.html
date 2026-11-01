@@ -251,7 +251,7 @@ function renderPreview() {
         const bars = r.bars.slice(i, i + per);
         for (const [bi, b] of bars.entries()) {
           const w = b.tokens.length && warnTok.has(b.tokens[0].i) ? ' warn' : '';
-          html += `<div class="b${has ? '' : ' short'}${w}${bi === bars.length - 1 ? ' end' : ''}">`;
+          html += `<div class="b${has ? '' : ' short'}${w}${bi === bars.length - 1 && b.closed ? ' end' : ''}">`;
           for (const tok of b.tokens) {
             const x = tok.t >= 0 ? (tok.t / b.len) * 100 : 96;
             html += `<span style="position:absolute;left:calc(${x}% + 4px);top:8px">${tokHtml(tok, text)}</span>`;
@@ -276,7 +276,7 @@ function renderPreview() {
     }
     r.bars.forEach((b, k) => {
       const w = b.tokens.length && warnTok.has(b.tokens[0].i) ? ' warn' : '';
-      html += `<div class="b${r.barred && !b.cont ? ' barred' : ''}${r.barred && k === r.bars.length - 1 ? ' last' : ''}${w}">`;
+      html += `<div class="b${r.barred && !b.cont ? ' barred' : ''}${r.barred && k === r.bars.length - 1 && b.closed ? ' last' : ''}${w}">`;
       for (const tok of b.tokens) {
         const ly = tok.ly0 >= 0 ? lyricText(text, tok.ly0, tok.ly1) : '';
         html += `<div class="cell"><div class="cl">${tokHtml(tok, text)}${glyphsHtml(tok)}</div><div class="ly">${esc(ly) || '&nbsp;'}</div></div>`;

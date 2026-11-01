@@ -341,6 +341,7 @@ function rcBar(ctx, st, s, e, barLen) {
   if (!r || r.kind !== ROW.BARS || st.rowLine !== ctx.line) { addRow(S, ROW.BARS); st.rowLine = ctx.line; }
   const bar = addBar(S, barLen);
   bar.start = st.bar * barLen;
+  bar.closed = true;
   if (!st.ended) S.barLines.push(st.bar * barLen);
   const f0 = t0s[0], f1 = t1s[0];
   if (f1 - f0 === 1 && (N[f0] === '<' || N[f0] === '>')) {
@@ -481,7 +482,8 @@ function parseChordwiki(ctx) {
       } else addEvent(S, W.barN + swing(t + h.off), K.HIT, null, tok, h.acc, h.dh);
     }
   };
-  const finishBar = () => {
+  // closed: the bar ends at a written barline (shown as a closing line)
+  const finishBar = (closed = false) => {
     const sl = W.slots;
     if (sl.length) {
       const MBU = S.MB * S.MU;
@@ -502,6 +504,7 @@ function parseChordwiki(ctx) {
         len = Math.max(MBU, t);
       }
       bar.len = len;
+      bar.closed = closed;
       // a bar whose written lengths do not fill (or overflow) the meter
       if (t !== null && Math.abs(t - MBU) > 1e-6) {
         S.warnings.push({ start: W.barN, written: t, meter: MBU, tok: sl[0].tok });
@@ -513,9 +516,9 @@ function parseChordwiki(ctx) {
     }
     W.runQ = 0;
   };
-  const repStart = () => { finishBar(); W.repEv = S.events.length; W.repT = W.barN; };
+  const repStart = () => { finishBar(true); W.repEv = S.events.length; W.repT = W.barN; };
   const repEnd = () => {
-    finishBar();
+    finishBar(true);
     const d = W.barN - W.repT, n = S.events.length;
     for (let i = W.repEv; i < n; i++) {
       const e = S.events[i];
@@ -536,7 +539,11 @@ function parseChordwiki(ctx) {
   const slot = (n0, n1, kind, chord) => {
     if (!W.lineBarred && W.slots.length) finishBar();
     if (!W.slots.length) { cwRow(); addBar(S, S.MB * S.MU); }
-    else if (W.rowLine !== ctx.line) { cwRow(); addBar(S, S.MB * S.MU).cont = true; }
+    else {
+      // a bar carried over from the previous line gets a piece on this line's row
+      cwRow();
+      if (S.bars[S.bars.length - 1].row !== S.rows.length - 1) addBar(S, S.MB * S.MU).cont = true;
+    }
     const tok = addTok(ctx, n0, n1, kind);
     tok.chord = chord;
     if (W.slots.length < 1000) {
@@ -567,6 +574,11 @@ function parseChordwiki(ctx) {
     s.tok.hits.push(dh);
     s.hits.push({ off: s.dur, acc: m.acc, dh });
     s.dur += q; s.expl = true;
+  };
+  // does the line starting at j begin with a barline (closing the bar left open above)?
+  const nextOpensWithBarline = (j) => {
+    while (j < N.length && N[j] === ' ') j++;
+    return N[j] === '|' || N.startsWith('[|', j) || (N[j] === ':' && N[j + 1] === '|');
   };
   const isSpaceLike = (c) => c === ' ' || c === '|' || c === '[' || c === ']';
   const nextContinues = (j) => {
@@ -625,7 +637,7 @@ function parseChordwiki(ctx) {
         while (a < b && N[a] === ' ') a++;
         while (b > a && N[b - 1] === ' ') b--;
         const inner = N.slice(a, b);
-        if (inner === '|' || inner === '||') finishBar();
+        if (inner === '|' || inner === '||') finishBar(true);
         else if (inner === '|:') repStart();
         else if (inner === ':|') repEnd();
         else if (inner === 'N.C.' || inner === 'NC') slot(a, b, K.STOP, null);
@@ -650,7 +662,7 @@ function parseChordwiki(ctx) {
         continue;
       }
       if (c === ':' && N[p + 1] === '|') { repEnd(); p += 2; continue; }
-      if (c === '|') { if (N[p + 1] === ':') { repStart(); p += 2; } else { finishBar(); p++; } continue; }
+      if (c === '|') { if (N[p + 1] === ':') { repStart(); p += 2; } else { finishBar(true); p++; } continue; }
       const m = symAt(ms, N, p);
       if (m) { note(p, m); p += m.sym.length; continue; }
       if (c === '/' && (p === ls || isSpaceLike(N[p - 1])) && (p + 1 >= le || isSpaceLike(N[p + 1]))) {
@@ -682,7 +694,7 @@ function parseChordwiki(ctx) {
       }
       p++;
     }
-    if (!(W.slots.length && W.lineBarred && nextContinues(pos))) finishBar();
+    if (!(W.slots.length && W.lineBarred && nextContinues(pos))) finishBar(nextOpensWithBarline(pos));
     // the faint chord over a pickup only makes sense when chords follow on the line
     const lr = lastRow(S);
     if (lr && W.rowLine === ctx.line && lr.pre >= 0 && !lr.bars.length) lr.pre = -1;
