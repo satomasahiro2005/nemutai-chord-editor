@@ -2,76 +2,76 @@
 
 https://chord.nemut.ai/
 
-ChordWiki 形式のコード譜を書きながら、タイムラインに合わせて鳴らせるエディタ。rechord 形式も読める。
+An editor for chord sheets in ChordWiki format that plays them along a timeline as you write. It also reads rechord notation.
 
-ファイルは `public/index.html` と `public/engine.js` の 2 つだけで、ビルドも依存ライブラリも無い。書いたテキストはブラウザの中にだけ保存され、どこにも送られない。
+The whole app is two files, `public/index.html` and `public/engine.js`, with no build step and no dependencies. Your text is saved in your browser only and is never sent anywhere.
 
-## できること
+## Features
 
-- 左で書くと、右のプレビューと上のタイムラインがすぐ変わる
-- プレビューはコード名をキーから見た度数で色分けし、歌詞と長さの記号をコードの下に出す
-- タイムラインはコードを鳴る長さどおりのブロックで出す。拍が足りない・はみ出した小節は赤で何拍かを示す
-- 内蔵の簡易シンセか Web MIDI の出力で鳴らす。再生中は今のコードと今の 1 音が光る
-- `.mid` に書き出せば DAW のタイムラインにそのまま置ける
-- `.txt` の読み込み・保存・ドロップ
+- Type on the left; the preview on the right and the timeline at the top update immediately
+- The preview colours each chord by its scale degree in the key and shows lyrics and note lengths under the chords
+- The timeline draws each chord as a block as long as it sounds; bars whose written lengths don't fill the meter (or overflow it) are marked in red with their length in beats
+- Plays through a small built-in synth or a Web MIDI output, lighting up the current chord and the current note
+- Exports a `.mid` file that drops straight onto a DAW timeline
+- Open, save or drag in `.txt` files
 
-### 書くのを助ける機能
+### Writing help
 
-| 操作 | 内容 |
+| Action | What it does |
 |---|---|
-| パレット | キーの I〜vii と V/V・V/vi・V/ii・iv・♭VII。クリックで挿入して鳴らす（Shift+クリックは鳴らすだけ） |
-| `[` | `]` を補い、キーのコードと曲中で使ったコードを候補に出す。↑↓ で選んで Enter / Tab |
-| Alt+1〜7 | その度数のコードを挿入（Alt+Shift でセブンス） |
-| コードにカーソルを乗せる | そのコードを鳴らす（「試聴」で切り替え） |
-| Ctrl+Space | カーソル位置のコードから再生 / 停止 |
-| Space | 再生 / 停止（エディタの外） |
+| Palette | Chords of the key (I–vii) plus V/V, V/vi, V/ii, iv and ♭VII. Click to insert and hear it (Shift+click only plays it) |
+| `[` | Closes the bracket and suggests the key's chords and the chords already in the song. ↑↓ to choose, Enter or Tab to insert |
+| Alt+1–7 | Inserts the chord on that degree (Alt+Shift for the seventh) |
+| Caret onto a chord | Plays that chord (toggle with 試聴) |
+| Ctrl+Space | Plays from the chord at the caret, or stops |
+| Space | Play / stop (outside the editor) |
 
-## ChordWiki 形式
+## ChordWiki format
 
 ```
-{title:曲名}
+{title:Song}
 {c:BPM=96　4/4拍子　-：8分音符　=：16分音符　>：アクセント}
 {key:C}
 
 [Intro]
 |[CM7]---- ----|[Am7]---- ----|[Dm7]---- [G7]-->-|[C]---- ----|
 
-[Aメロ]
-[|][C]ここに歌詞を[Em7]書くと[|][F]コードの下に[G7]出ます[|]
+[Verse]
+[|][C]lyrics go[Em7]here and[|][F]show under[G7]the chords[|]
 ```
 
-| 書き方 | 意味 |
+| Syntax | Meaning |
 |---|---|
-| `[C]歌詞` | コード。後ろの歌詞はそのコードの下に出る |
-| `\|` `[\|]` | 小節線 |
-| `-` `=` `>` など | 長さの記号。意味は `{c:}` の凡例（`記号：N分音符`、`記号：N分音符アクセント`、`記号：アクセント`）から読む。凡例が無ければ `-` 8 分、`=` 16 分、`>` アクセント |
-| `16分音符(shuffle)` | 凡例にあれば 16 分（8 分なら 8 分）を 2:1 で跳ねる |
-| `N/M拍子` `BPM=` | 凡例にあればその拍子と BPM を使う |
-| `/` | 1 拍 |
-| `\|\|: … :\|\|` | 間を 2 回鳴らす |
-| `[Intro]` `[Aメロ]` | コード名として読めない括弧だけの行は見出し |
-| `[N.C.]` | 休み |
-| 小節線の無い行 | コード 1 つを 1 小節にする |
-| 長さを書かない小節 | rechord と同じ置き方（2 個なら 1・3 拍目、3〜4 個なら 4 分ずつ、5〜8 個なら 8 分ずつ…） |
+| `[C]lyrics` | A chord; the lyrics after it are shown under it |
+| `\|` `[\|]` | Barline |
+| `-` `=` `>` … | Note lengths. Their meaning is read from the song's legend in `{c:}` (`symbol：N分音符` = 1/N note, `symbol：N分音符アクセント` = accented 1/N note, `symbol：アクセント` = accent). Without a legend: `-` eighth, `=` sixteenth, `>` accent |
+| `16分音符(shuffle)` | In the legend: swing sixteenths (or eighths for `8分音符`) 2:1 |
+| `N/M拍子` `BPM=` | In the legend: time signature and tempo |
+| `/` | One beat |
+| `\|\|: … :\|\|` | Play the section twice |
+| `[Intro]` `[Aメロ]` | A bracket alone on its line that is not a chord name is a section label |
+| `[N.C.]` | No chord |
+| Line without barlines | Each chord gets one bar |
+| Bar without lengths | Chords are placed as rechord does (2 chords on beats 1 and 3, 3–4 in quarters, 5–8 in eighths, …) |
 
-書いた音符は 1 つずつ弾き直し、アクセントは強く鳴らす（「リズム」を外すとコードの変わり目だけ）。アクセントの長さは、スペースを挟まず普通の音符と並んでいればその音符と同じ、単独なら凡例の長さ。
+Every written note is played again, and accents are louder (turn off リズム to play chord changes only). An accent written right next to plain notes takes their length; on its own it has its legend length.
 
-## rechord 形式
+## rechord format
 
-[rechord](https://github.com/comorebi-notes/rechord) の書き方。`|` で小節を区切り、`%` 連打・`_` 休符・`=` 伸ばす・`/` か `on` でオンコード、行頭 `#` はメモ。
+The notation of [rechord](https://github.com/comorebi-notes/rechord): `|` separates bars, `%` repeats the chord, `_` is a rest, `=` holds, `/` or `on` gives the bass note, and a line starting with `#` is a memo.
 
-コードの積み方は rechord と同じで、根音を 3 オクターブ目（C3 = 48）に置き、13 の和音を元に音を足し引きし、5 音に満たなければ下の音をオクターブ上に重ねる。オンコードの最低音は和音の下に足す。
+Chords are voiced as rechord does: the root sits in octave 3 (C3 = 48), notes are added or removed from a 13th chord according to the chord name, chords with fewer than five notes double their lower notes an octave up, and an on-chord bass goes below the chord.
 
-## 開発
+## Development
 
 ```
-npm run serve     # http://localhost:8000/ （engine.js を ES モジュールで読むので file:// では動かない）
-npm test          # test/fixtures の譜面を鳴らして test/expected と比べる
-npm run deploy    # Cloudflare に上げる（wrangler）
+npm run serve     # http://localhost:8000/ (engine.js is an ES module, so file:// won't work)
+npm test          # plays every score in test/fixtures and compares it with test/expected
+npm run deploy    # uploads to Cloudflare (wrangler)
 ```
 
-`test/expected` は、REAPER 用の JSFX 版と rechord 本体の出力と突き合わせて同じになることを確かめてから保存したもの。意図して挙動を変えたときは `node test/run.mjs --update` で作り直す。
+The files in `test/expected` were saved after checking that the output matches both the REAPER JSFX version of this player and rechord itself. After an intended change in behaviour, regenerate them with `node test/run.mjs --update`.
 
-## ライセンス
+## License
 
-MIT（[LICENSE](LICENSE)）。chord-translator（MIT）由来の部分と rechord についての表記は [public/THIRD_PARTY.md](public/THIRD_PARTY.md)。
+MIT ([LICENSE](LICENSE)). Notices for the part derived from chord-translator (MIT) and for rechord are in [public/THIRD_PARTY.md](public/THIRD_PARTY.md).
