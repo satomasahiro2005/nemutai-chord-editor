@@ -2,7 +2,7 @@
 // @name         nemutai Chord Player for ChordWiki
 // @namespace    https://chord.nemut.ai/
 // @author       nemut.ai
-// @version      0.3.0
+// @version      0.3.1
 // @description  Plays ChordWiki chord sheets along a timeline, with chords coloured by degree.
 // @description:ja ChordWiki のコード譜をタイムラインに合わせて鳴らし、コードを度数で色分けします。
 // @match        https://ja.chordwiki.org/wiki/*
@@ -811,7 +811,8 @@ function readSheet() {
 // html.ncp-on: this view over the page; without it, ChordWiki's own page and a button back
 const css = `
 html.ncp-on, html.ncp-on body { height: 100%; margin: 0; overflow: hidden; background: #1b1d22; }
-html.ncp-on body > :not(.ncp-root) { display: none !important; }
+/* only ChordWiki's own parts are hidden; what other extensions add to the page stays visible */
+html.ncp-on .ncp-page { display: none !important; }
 html:not(.ncp-on) .ncp-root { display: none; }
 html.ncp-on .ncp-back { display: none; }
 .ncp-back { position: fixed; right: 14px; bottom: 14px; z-index: 2147483000; font: 700 12px "Yu Gothic UI", "Hiragino Sans", system-ui, sans-serif;
@@ -819,7 +820,7 @@ html.ncp-on .ncp-back { display: none; }
 .ncp-orig { font: inherit; color: #9db4d6; background: none; border: 0; padding: 0; cursor: pointer; }
 .ncp-orig:hover { text-decoration: underline; }
 .ncp-root { position: fixed; inset: 0; display: flex; flex-direction: column; background: #1b1d22; color: #e6e8ec;
-  font: 12px "Yu Gothic UI", "Hiragino Sans", system-ui, sans-serif; z-index: 2147483000; }
+  font: 12px "Yu Gothic UI", "Hiragino Sans", system-ui, sans-serif; z-index: 1000; }
 .ncp-top { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; padding: 5px 10px; background: #16181c; border-bottom: 1px solid #3a3e46; }
 .ncp-top a { color: #9db4d6; text-decoration: none; }
 .ncp-top a:hover { text-decoration: underline; }
@@ -894,6 +895,13 @@ function main() {
   top.append(el('button', { className: 'ncp-orig', textContent: '元の表示', onclick: () => setOn(false) }));
   const back = el('button', { className: 'ncp-back', textContent: 'nemutaiで見る', onclick: () => setOn(true) });
 
+  // ChordWiki's page as it is now, and ads it adds later; anything else added later is another extension's
+  // (extensions that came first mostly use their own tags, like <grammarly-...>)
+  for (const n of document.body.children) if (!n.tagName.includes('-')) n.classList.add('ncp-page');
+  const isAd = (n) => /^(IFRAME|INS|SCRIPT)$/.test(n.tagName) || /google|ad[s_-]|aswift/i.test(n.id + ' ' + n.className);
+  new MutationObserver((ms) => {
+    for (const m of ms) for (const n of m.addedNodes) if (n.nodeType === 1 && isAd(n)) n.classList.add('ncp-page');
+  }).observe(document.body, { childList: true });
   document.body.append(el('div', { className: 'ncp-root' }, [top, frame]), back);
   let off = false;
   try { off = localStorage.getItem('ncp.off') === '1'; } catch {}

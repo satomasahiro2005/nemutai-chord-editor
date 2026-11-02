@@ -1,7 +1,7 @@
 {
   "name": "nemutai-chord-editor",
   "private": true,
-  "version": "0.3.0",
+  "version": "0.3.1",
   "author": "nemut.ai",
   "type": "module",
   "license": "MIT",
