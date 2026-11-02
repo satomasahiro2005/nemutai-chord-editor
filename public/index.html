@@ -30,13 +30,14 @@ button.on { border-color: var(--hi); color: var(--hi); }
 .tp button:last-child { border-radius: 0 6px 6px 0; }
 .tp button:hover, .tp button.on { position: relative; }
 .tp svg { width: 16px; height: 16px; fill: currentColor; }
+#time { font: 13px var(--mono); color: var(--dim); min-width: 10ch; }
 #play .i-stop, #play.on .i-play { display: none; }
 #play.on .i-stop { display: block; }
 #info { color: var(--dim); }
 #tlwrap { overflow-x: auto; overflow-y: hidden; background: var(--panel2); border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
 #tlwrap { position: relative; }
-#tlspace { height: 76px; }
-#tl { position: absolute; top: 0; left: 0; display: block; height: 76px; cursor: pointer; }
+#tlspace { height: 92px; }
+#tl { position: absolute; top: 0; left: 0; display: block; height: 92px; cursor: pointer; }
 main { display: grid; grid-template-columns: var(--left, 42%) 6px 1fr 120px; min-height: 0; }
 #split { cursor: col-resize; background: var(--line); opacity: .35; }
 #split:hover, #split.drag { opacity: 1; background: var(--hi); }
@@ -70,11 +71,14 @@ main { display: grid; grid-template-columns: var(--left, 42%) 6px 1fr 120px; min
 .row { position: relative; }
 .text { color: var(--dim); font-size: 13px; padding: 3px 0; }
 .label { color: var(--dim); font-weight: 700; padding: 10px 0 2px; }
+.key { display: inline-block; margin: 6px 0 2px; padding: 1px 10px; border: 1px solid var(--line); border-radius: 10px; font-size: 13px; color: var(--dim); }
+.key b { color: var(--text); margin-left: 4px; }
+.key.chg { border-color: var(--hi); color: var(--hi); }
+.key.chg b { color: var(--hi); }
 .blank { height: 10px; }
 .grid { display: flex; }
 .grid .b { flex: 1; position: relative; height: 54px; border-left: 1px solid var(--line); min-width: 0; }
 .grid .b.end { border-right: 1px solid var(--line); }
-.grid .b.q, .flow .b.barred.q { border-left-color: #6d7480; }   /* every 4 bars a little whiter */
 .grid .b.short { height: 40px; }
 .grid .g { position: absolute; top: 33px; font-size: 13px; }
 .flow { display: flex; flex-wrap: wrap; align-items: flex-start; padding: 4px 0; }
@@ -109,10 +113,13 @@ body.embed label:has(#tr) { display: none; }   /* ChordWiki's own transposition 
 <div id="bar">
   <span class="title" id="title">nemutai Chord Editor</span>
   <span class="tp">
-    <button id="home" title="先頭へ"><svg viewBox="0 0 16 16"><rect x="2" y="3" width="2" height="10"/><path d="M14 3v10L5 8z"/></svg></button>
+    <button id="prev" title="前のセクションへ（頭なら先頭へ）"><svg viewBox="0 0 16 16"><rect x="2" y="3" width="2" height="10"/><path d="M14 3v10L5 8z"/></svg></button>
     <button id="play" title="再生 / 一時停止（Space）"><svg class="i-play" viewBox="0 0 16 16"><path d="M4 2.5v11l9.5-5.5z"/></svg><svg class="i-stop" viewBox="0 0 16 16"><rect x="3.5" y="3" width="3" height="10" rx=".5"/><rect x="9.5" y="3" width="3" height="10" rx=".5"/></svg></button>
+    <button id="stop" title="停止（再生を始めた位置に戻る）"><svg viewBox="0 0 16 16"><rect x="3.5" y="3.5" width="9" height="9" rx="1"/></svg></button>
+    <button id="next" title="次のセクションへ"><svg viewBox="0 0 16 16"><path d="M2 3v10l9-5z"/><rect x="12" y="3" width="2" height="10"/></svg></button>
     <button id="loop" class="on" title="ループ"><svg viewBox="0 0 16 16"><path d="M3 7a3 3 0 0 1 3-3h5V2l3 3-3 3V6H6a1 1 0 0 0-1 1v1H3zM13 9a3 3 0 0 1-3 3H5v2l-3-3 3-3v2h5a1 1 0 0 0 1-1V8h2z"/></svg></button>
   </span>
+  <span id="time"></span>
   <button id="rhythm" class="on" title="書いた長さどおりに弾き直す">リズム</button>
   <label>BPM <input id="bpm" type="number" min="20" max="400" step="1"></label>
   <label>移調 <input id="tr" type="number" min="-12" max="12" step="1" value="0"></label>
@@ -257,11 +264,14 @@ function glyphsHtml(tok) {
 function renderPreview() {
   const text = src.value;
   const warnTok = new Set(S.warnings.map((w) => w.tok.i));
-  let html = '', barNo = 0;
-  const q = () => (barNo++ % 4 === 0 ? ' q' : '');
+  let html = '', keyNo = 0;
   for (const r of S.rows) {
     if (r.kind === ROW.BLANK) { html += '<div class="blank"></div>'; continue; }
-    if (r.kind === ROW.TEXT) { html += `<div class="text">${esc(text.slice(r.o0, r.o1))}</div>`; continue; }
+    if (r.kind === ROW.TEXT) {
+      const km = text.slice(r.o0, r.o1).match(/^key:\s*(.*)$/);
+      if (km) { html += `<div><span class="key${keyNo++ ? ' chg' : ''}">${keyNo > 1 ? '転調' : 'キー'}<b>${esc(km[1].trim())}</b></span></div>`; continue; }
+      html += `<div class="text">${esc(text.slice(r.o0, r.o1))}</div>`; continue;
+    }
     if (r.kind === ROW.LABEL) { html += `<div class="label">${esc(text.slice(r.o0, r.o1))}</div>`; continue; }
     if (S.mode === 'rechord' || (r.barred && !r.hasLy)) {
       // bars side by side, chords and notes at their beat
@@ -272,7 +282,7 @@ function renderPreview() {
         const bars = r.bars.slice(i, i + per);
         for (const [bi, b] of bars.entries()) {
           const w = b.tokens.length && warnTok.has(b.tokens[0].i) ? ' warn' : '';
-          html += `<div class="b${q()}${has ? '' : ' short'}${w}${bi === bars.length - 1 && b.closed ? ' end' : ''}">`;
+          html += `<div class="b${has ? '' : ' short'}${w}${bi === bars.length - 1 && b.closed ? ' end' : ''}">`;
           for (const tok of b.tokens) {
             const x = tok.t >= 0 ? (tok.t / b.len) * 100 : 96;
             html += `<span style="position:absolute;left:calc(${x}% + 4px);top:8px">${tokHtml(tok, text)}</span>`;
@@ -297,7 +307,7 @@ function renderPreview() {
     }
     r.bars.forEach((b, k) => {
       const w = b.tokens.length && warnTok.has(b.tokens[0].i) ? ' warn' : '';
-      html += `<div class="b${r.barred && !b.cont ? ' barred' + q() : ''}${r.barred && k === r.bars.length - 1 && b.closed ? ' last' : ''}${w}">`;
+      html += `<div class="b${r.barred && !b.cont ? ' barred' : ''}${r.barred && k === r.bars.length - 1 && b.closed ? ' last' : ''}${w}">`;
       for (const tok of b.tokens) {
         const ly = tok.ly0 >= 0 ? lyricText(text, tok.ly0, tok.ly1) : '';
         html += `<div class="cell"><div class="cl">${tokHtml(tok, text)}${glyphsHtml(tok)}</div><div class="ly">${esc(ly) || '&nbsp;'}</div></div>`;
@@ -334,7 +344,7 @@ function renderTimeline() {
   drawPlayhead();
 }
 function drawTimeline() {
-  const dpr = window.devicePixelRatio || 1, w = tlwrap.clientWidth, h = 76, sl = tlwrap.scrollLeft;
+  const dpr = window.devicePixelRatio || 1, w = tlwrap.clientWidth, h = 92, sl = tlwrap.scrollLeft;
   if (tl.width !== Math.round(w * dpr)) { tl.width = Math.round(w * dpr); tl.height = h * dpr; tl.style.width = w + 'px'; tl.style.height = h + 'px'; }
   tl.style.left = sl + 'px';
   const g = tl.getContext('2d');
@@ -348,6 +358,26 @@ function drawTimeline() {
     g.fillStyle = '#6d7480'; g.fillText(String(i + 1), X(b) + 3, 11);
   });
   g.fillStyle = '#3a3e46'; g.fillRect(X(S.total), 0, 1, h);
+  // real time along the bottom, at a step that leaves room for the labels
+  const spb = 60 / player.bpm(), step = [1, 2, 5, 10, 15, 30, 60, 120, 300].find((s) => s / spb * view.pxq >= 56) || 600;
+  g.fillStyle = '#16181c'; g.fillRect(sl, h - 16, w, 16);
+  g.fillStyle = '#3a3e46'; g.fillRect(sl, h - 16, w, 1);
+  g.font = '10px ui-monospace, Consolas, monospace';
+  for (let s = Math.max(0, Math.floor(b0 * spb / step) * step); s / spb <= Math.min(b1, S.total); s += step) {
+    const x = X(s / spb);
+    g.fillStyle = '#3a3e46'; g.fillRect(x, h - 16, 1, 5);
+    g.fillStyle = '#6d7480'; g.fillText(clock(s), x + 3, h - 4);
+  }
+  // key changes: a line and the new key at the top
+  g.font = 'bold 10px sans-serif';
+  for (const k of keyMarks()) {
+    if (k.t < b0 - 50 || k.t > b1) continue;
+    const x = X(k.t), bi = S.barLines.findIndex((b) => Math.abs(b - k.t) < 1e-6);
+    const lx = x + 3 + (bi >= 0 ? g.measureText(String(bi + 1)).width + 6 : 0), tw = g.measureText(k.name).width;
+    g.fillStyle = '#faa333'; g.fillRect(x, 0, 2, h - 16);
+    g.fillRect(lx - 3, 1, tw + 6, 13);
+    g.fillStyle = '#15120c'; g.fillText(k.name, lx, 11);
+  }
   g.font = 'bold 12px "Yu Gothic UI", sans-serif';
   for (const k of TL.blocks) {
     if (k.end < b0 || k.e.t > b1) continue;
@@ -373,6 +403,15 @@ function drawTimeline() {
     g.fillStyle = '#f26161'; g.fillText(`${+wn.written.toFixed(2)}拍`, x0 + 4, 74);
   }
 }
+const clock = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
+// each {key:} after the first, at the first chord it applies to
+function keyMarks() {
+  return (S.keys || []).slice(1).map((k) => {
+    const e = S.events.find((e) => e.tok && e.tok.o0 >= k.o);
+    const m = src.value.slice(k.o).match(/^\{key:\s*([^}]*)\}/);
+    return e && m ? { t: e.t, name: m[1].trim() } : null;
+  }).filter(Boolean);
+}
 let tlQueued = false;
 tlwrap.addEventListener('scroll', () => {
   if (tlQueued) return;
@@ -383,10 +422,12 @@ let phEl = null;
 function drawPlayhead() {
   if (!phEl) {
     phEl = document.createElement('div');
-    phEl.style.cssText = 'position:absolute;top:0;width:2px;height:76px;background:#fff;pointer-events:none';
+    phEl.style.cssText = 'position:absolute;top:0;width:2px;height:92px;background:#fff;pointer-events:none';
     tlwrap.appendChild(phEl);
   }
   phEl.style.left = 12 + player.pos * view.pxq + 'px';
+  const spb = 60 / player.bpm();
+  $('time').textContent = `${clock(player.pos * spb)} / ${clock(S.total * spb)}`;
 }
 
 let mmQueued = false;
@@ -922,7 +963,7 @@ const player = {
     c.resume();
     this.on = true;
     $('play').classList.add('on');
-    this.t0 = c.currentTime + 0.05; this.b0 = this.pos;
+    this.t0 = c.currentTime + 0.05; this.b0 = this.pos; this.from = this.pos;
     this.reschedule();
     this.timer = setInterval(() => this.tick(), 25);
     requestAnimationFrame(() => this.frame());
@@ -1094,14 +1135,40 @@ function playOrStop() {
 }
 $('play').onclick = playOrStop;
 // back to the top: caret and playhead (a playing song goes on from there)
-$('home').onclick = () => {
-  src.setSelectionRange(0, 0); src.scrollTop = 0; syncCaret();
-  pv.scrollTop = 0; tlwrap.scrollLeft = 0;
-  player.seek(0);
+// stop: back to where this play started
+$('stop').onclick = () => { const was = player.on; if (was) player.stop(); jumpTo(was ? player.from : 0); };
+// sections ([Intro], [Aメロ] ...) to skip between; with none, every 4 bars
+function sectionStarts() {
+  const out = [0];
+  let pending = false;
+  for (const r of S.rows) {
+    if (r.kind === ROW.LABEL) { pending = true; continue; }
+    if (!pending || r.kind !== ROW.BARS) continue;
+    const toks = [...(r.pre >= 0 ? [S.tokens[r.pre]] : []), ...r.bars.flatMap((b) => b.tokens)];
+    const e = toks.map((tok) => S.events.find((e) => e.tok === tok)).find(Boolean);
+    if (e) { out.push(e.t); pending = false; }
+  }
+  if (out.length < 2) S.barLines.forEach((b, i) => { if (i % 4 === 0) out.push(b); });
+  return [...new Set(out)].filter((b) => b < S.total).sort((a, b) => a - b);
+}
+function jumpTo(b) {
+  player.seek(b);
+  const i = lastEventAt(S.events, b + 1e-6);
+  if (i >= 0 && S.events[i].tok) goToSource(S.events[i].tok, false);
+  if (b === 0) { src.scrollTop = 0; pv.scrollTop = 0; }
+}
+$('prev').onclick = () => {
+  const now = player.on ? player.pos - 1 : player.pos - 1e-6;   // just after a section start: the one before
+  const xs = sectionStarts().filter((b) => b <= now);
+  jumpTo(xs.length ? xs[xs.length - 1] : 0);
+};
+$('next').onclick = () => {
+  const x = sectionStarts().find((b) => b > player.pos + 1e-6);
+  if (x !== undefined) jumpTo(x);
 };
 for (const id of ['loop', 'rhythm']) $(id).onclick = () => { $(id).classList.toggle('on'); };
 let bpmTouched = false;
-$('bpm').oninput = () => { bpmTouched = true; if (player.on) { player.t0 = player.ctx.currentTime; player.b0 = player.pos; } };
+$('bpm').oninput = () => { bpmTouched = true; if (player.on) { player.t0 = player.ctx.currentTime; player.b0 = player.pos; } drawTimeline(); drawPlayhead(); };
 $('tr').oninput = update;
 $('vel').value = store.get('csp.vel') || 100;
 $('vel').onchange = () => { $('vel').value = player.vel(); store.set('csp.vel', $('vel').value); };
