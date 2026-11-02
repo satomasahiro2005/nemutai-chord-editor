@@ -108,6 +108,7 @@ body.embed label:has(#tr) { display: none; }   /* ChordWiki's own transposition 
   <label>拡大 <select id="zoom"><option>80</option><option>90</option><option selected>100</option><option>110</option><option>125</option><option>150</option><option>175</option><option>200</option></select></label>
   <label>色 <select id="color"><option value="0">度数</option><option value="1">音名</option></select></label>
   <label>出力 <select id="out"><option value="">内蔵音</option></select></label>
+  <label title="アクセントはこれより 27 強く（上限 127）">ベロシティ <input id="vel" type="number" min="1" max="127" step="1" value="100"></label>
   <span id="info"></span>
   <span class="sep"></span>
   <button id="sample">サンプル</button>
@@ -886,11 +887,12 @@ const player = {
     c.resume();
     const t = c.currentTime + 0.01;
     if (this.on) return;
-    this.strike(ch.notes, 96, t);
+    this.strike(ch.notes, this.vel(), t);
     clearTimeout(this.audT);
     this.audT = setTimeout(() => { if (!this.on) this.release(this.ctx.currentTime); }, 900);
   },
-  velOf(e) { return $('rhythm').classList.contains('on') && e.acc ? 127 : 100; },
+  vel() { return Math.max(1, Math.min(127, Math.round(+$('vel').value) || 100)); },
+  velOf(e) { return $('rhythm').classList.contains('on') && e.acc ? Math.min(127, this.vel() + 27) : this.vel(); },
   apply(e, time) {
     if (e.kind === K.PLAY || e.kind === K.STOP || e.kind === K.ERR) {
       this.cur = e.kind === K.PLAY ? e.chord.notes : [];
@@ -1018,8 +1020,8 @@ function exportMidi() {
   const strike = (notes, vel, tick) => { for (const n of cur) ev.push([tick, [0x80, n, 0]]); cur = notes; for (const n of cur) ev.push([tick + 0.5, [0x90, n, vel]]); };
   for (const e of S.events) {
     const tick = Math.round(e.t * tpq);
-    if ([K.PLAY, K.STOP, K.ERR].includes(e.kind)) strike(e.kind === K.PLAY ? e.chord.notes : [], rhythm && e.acc ? 127 : 100, tick);
-    else if ((e.kind === K.STREAK || (e.kind === K.HIT && rhythm)) && cur.length) strike(cur, rhythm && e.acc ? 127 : 100, tick);
+    if ([K.PLAY, K.STOP, K.ERR].includes(e.kind)) strike(e.kind === K.PLAY ? e.chord.notes : [], player.velOf(e), tick);
+    else if ((e.kind === K.STREAK || (e.kind === K.HIT && rhythm)) && cur.length) strike(cur, player.velOf(e), tick);
   }
   for (const n of cur) ev.push([Math.round(S.total * tpq), [0x80, n, 0]]);
   ev.sort((a, b) => a[0] - b[0]);
@@ -1080,6 +1082,8 @@ for (const id of ['loop', 'rhythm']) $(id).onclick = () => { $(id).classList.tog
 let bpmTouched = false;
 $('bpm').oninput = () => { bpmTouched = true; if (player.on) { player.t0 = player.ctx.currentTime; player.b0 = player.pos; } };
 $('tr').oninput = update;
+$('vel').value = store.get('csp.vel') || 100;
+$('vel').onchange = () => { $('vel').value = player.vel(); store.set('csp.vel', $('vel').value); };
 $('color').onchange = () => { palKey = ''; update(); };
 document.addEventListener('keydown', (e) => {
   if (e.ctrlKey && !e.altKey) {
