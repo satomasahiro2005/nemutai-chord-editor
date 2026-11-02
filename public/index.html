@@ -332,7 +332,7 @@ function drawTimeline() {
   g.font = '10px sans-serif';
   S.barLines.forEach((b, i) => {
     if (b < b0 - 50 || b > b1) return;
-    g.fillStyle = '#3a3e46'; g.fillRect(X(b), 0, 1, h);
+    g.fillStyle = i % 4 === 0 ? '#6d7480' : '#3a3e46'; g.fillRect(X(b), 0, 1, h);   // every 4 bars a little whiter
     g.fillStyle = '#6d7480'; g.fillText(String(i + 1), X(b) + 3, 11);
   });
   g.fillStyle = '#3a3e46'; g.fillRect(X(S.total), 0, 1, h);
