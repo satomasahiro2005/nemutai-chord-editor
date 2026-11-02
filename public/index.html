@@ -126,10 +126,10 @@ body.embed label:has(#tr) { display: none; }   /* ChordWiki's own transposition 
 <div id="bar">
   <span class="title" id="title">nemutai Chord Editor</span>
   <span class="tp">
-    <button id="prev" title="前のセクションへ（頭なら先頭へ）"><svg viewBox="0 0 16 16"><rect x="2" y="3" width="2" height="10"/><path d="M14 3v10L5 8z"/></svg></button>
+    <button id="prev" title="先頭へ"><svg viewBox="0 0 16 16"><rect x="2" y="3" width="2" height="10"/><path d="M14 3v10L5 8z"/></svg></button>
     <button id="play" title="再生 / 一時停止（Space）"><svg class="i-play" viewBox="0 0 16 16"><path d="M4 2.5v11l9.5-5.5z"/></svg><svg class="i-stop" viewBox="0 0 16 16"><rect x="3.5" y="3" width="3" height="10" rx=".5"/><rect x="9.5" y="3" width="3" height="10" rx=".5"/></svg></button>
     <button id="stop" title="停止（再生を始めた位置に戻る）"><svg viewBox="0 0 16 16"><rect x="3.5" y="3.5" width="9" height="9" rx="1"/></svg></button>
-    <button id="next" title="次のセクションへ"><svg viewBox="0 0 16 16"><path d="M2 3v10l9-5z"/><rect x="12" y="3" width="2" height="10"/></svg></button>
+    <button id="next" title="最後へ"><svg viewBox="0 0 16 16"><path d="M2 3v10l9-5z"/><rect x="12" y="3" width="2" height="10"/></svg></button>
     <button id="loop" class="on" title="ループ"><svg viewBox="0 0 16 16"><path d="M3 7a3 3 0 0 1 3-3h5V2l3 3-3 3V6H6a1 1 0 0 0-1 1v1H3zM13 9a3 3 0 0 1-3 3H5v2l-3-3 3-3v2h5a1 1 0 0 0 1-1V8h2z"/></svg></button>
   </span>
   <span id="time"></span>
@@ -1203,35 +1203,15 @@ $('play').onclick = playOrStop;
 // back to the top: caret and playhead (a playing song goes on from there)
 // stop: back to where this play started
 $('stop').onclick = () => { const was = player.on; if (was) player.stop(); jumpTo(was ? player.from : 0); };
-// sections ([Intro], [Aメロ] ...) to skip between; with none, every 4 bars
-function sectionStarts() {
-  const out = [0];
-  let pending = false;
-  for (const r of S.rows) {
-    if (r.kind === ROW.LABEL) { pending = true; continue; }
-    if (!pending || r.kind !== ROW.BARS) continue;
-    const toks = [...(r.pre >= 0 ? [S.tokens[r.pre]] : []), ...r.bars.flatMap((b) => b.tokens)];
-    const e = toks.map((tok) => S.events.find((e) => e.tok === tok)).find(Boolean);
-    if (e) { out.push(e.t); pending = false; }
-  }
-  if (out.length < 2) S.barLines.forEach((b, i) => { if (i % 4 === 0) out.push(b); });
-  return [...new Set(out)].filter((b) => b < S.total).sort((a, b) => a - b);
-}
 function jumpTo(b) {
   player.seek(b);
   const i = lastEventAt(S.events, b + 1e-6);
   if (i >= 0 && S.events[i].tok) goToSource(S.events[i].tok, false);
   if (b === 0) { src.scrollTop = 0; pv.scrollTop = 0; }
 }
-$('prev').onclick = () => {
-  const now = player.on ? player.pos - 1 : player.pos - 1e-6;   // just after a section start: the one before
-  const xs = sectionStarts().filter((b) => b <= now);
-  jumpTo(xs.length ? xs[xs.length - 1] : 0);
-};
-$('next').onclick = () => {
-  const x = sectionStarts().find((b) => b > player.pos + 1e-6);
-  if (x !== undefined) jumpTo(x);
-};
+// to the top / to the end (like Home / End)
+$('prev').onclick = () => jumpTo(0);
+$('next').onclick = () => { jumpTo(S.total); pv.scrollTop = pv.scrollHeight; tlwrap.scrollLeft = tlwrap.scrollWidth; };
 for (const id of ['loop', 'rhythm']) $(id).onclick = () => { $(id).classList.toggle('on'); };
 let bpmTouched = false;
 $('bpm').oninput = () => { bpmTouched = true; if (player.on) { player.t0 = player.ctx.currentTime; player.b0 = player.pos; } drawTimeline(); drawPlayhead(); };
