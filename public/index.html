@@ -497,8 +497,9 @@ function syncCaret(e) {
   const t = tokAtCaret();
   const moved = e && (e.type === 'click' || (e.type === 'keyup' && /^(Arrow|Home|End|Page)/.test(e.key)));
   if (moved && t && t.chord && t.i !== caretTok && audition && !player.on) player.audition(src.value.slice(t.o0, t.o1));
-  // clicking or arrowing onto a chord moves the playhead there (playback starts from it)
-  if (moved && t && t.i !== caretTok && !player.on) player.seek(firstEventOf(t));
+  // clicking or arrowing onto a chord moves the playhead there (playback starts from it),
+  // also the chord it was already on (after a pause, a click there plays from it again)
+  if (moved && t && !player.on) player.seek(firstEventOf(t));
   if (caretTok !== null) for (const el of tokEls[caretTok] || []) el.classList.remove('caret');
   caretTok = t ? t.i : null;
   for (const el of tokEls[caretTok] || []) el.classList.add('caret');
