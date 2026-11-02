@@ -34,6 +34,15 @@ button.on { border-color: var(--hi); color: var(--hi); }
 #play .i-stop, #play.on .i-play { display: none; }
 #play.on .i-stop { display: block; }
 #info { color: var(--dim); }
+#probBtn.has { color: var(--err); border-color: color-mix(in srgb, var(--err) 50%, transparent); }
+#probs { display: none; max-height: 32%; overflow: auto; border-top: 1px solid var(--line); background: var(--panel); font-size: 13px; padding: 4px 0; }
+body.probs #probs { display: block; }
+#probs div { padding: 3px 12px; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#probs div:hover { background: var(--panel2); }
+#probs .ln { color: var(--dim); font-family: var(--mono); display: inline-block; min-width: 5ch; }
+#probs .none { color: var(--dim); cursor: default; }
+#probs .none:hover { background: none; }
+body:not(.embed) #edit { display: none; }
 #tlwrap { overflow-x: auto; overflow-y: hidden; background: var(--panel2); border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
 #tlwrap { position: relative; }
 #tlspace { height: 76px; }
@@ -105,6 +114,10 @@ main { display: grid; grid-template-columns: var(--left, 42%) 6px 1fr 120px; min
 body.dragging #drop { display: block; }
 body.embed #left, body.embed #split, body.embed #open, body.embed #save, body.embed #sample, body.embed #mid { display: none; }
 body.embed main { grid-template-columns: 1fr 120px; }
+/* on ChordWiki the editor opens on demand, to fix a sheet for playing here (ChordWiki itself is not changed) */
+body.embed.editing #left, body.embed.editing #split { display: flex; }
+body.embed.editing #split { display: block; }
+body.embed.editing main { grid-template-columns: var(--left, 42%) 6px 1fr 120px; }
 body.embed label:has(#tr) { display: none; }   /* ChordWiki's own transposition renames the chords */
 @media (max-width: 800px) { main { grid-template-columns: 1fr; grid-template-rows: 45vh 1fr; } #mm, #split { display: none; } #left { border-bottom: 1px solid var(--line); } }
 </style>
@@ -128,6 +141,8 @@ body.embed label:has(#tr) { display: none; }   /* ChordWiki's own transposition 
   <label>出力 <select id="out"><option value="">内蔵音</option></select></label>
   <label title="アクセントはこれより 27 強く（上限 127）">ベロシティ <input id="vel" type="number" min="1" max="127" step="1" value="100"></label>
   <span id="info"></span>
+  <button id="probBtn" title="問題の一覧を開く / 閉じる">問題</button>
+  <button id="edit" title="譜面を書き換える（ChordWikiには保存されない）">編集</button>
   <span class="sep"></span>
   <button id="sample">サンプル</button>
   <button id="open">開く</button>
@@ -140,6 +155,7 @@ body.embed label:has(#tr) { display: none; }   /* ChordWiki's own transposition 
   <div id="left">
     <div id="pal"></div>
     <div id="ed"><pre id="hl" aria-hidden="true"></pre><textarea id="src" spellcheck="false" wrap="off" autocomplete="off"></textarea><div id="ac"></div></div>
+    <div id="probs"></div>
   </div>
   <div id="split" title="ドラッグで幅を変える"></div>
   <div id="pv"><div id="pvin"></div></div>
@@ -191,8 +207,8 @@ function update() {
   $('title').textContent = (titleRow && titleRow[1].trim()) || fileName;
   if (!bpmTouched) $('bpm').value = S.legend.bpm || 120;
   const den = Math.round(4 / S.MU);
-  $('info').textContent = `${S.mode === 'chordwiki' ? 'ChordWiki' : 'Rechord'} ${S.MB}/${den}` +
-    (S.warnings.length ? `  長さの合わない小節 ${S.warnings.length}` : '');
+  $('info').textContent = `${S.mode === 'chordwiki' ? 'ChordWiki' : 'Rechord'} ${S.MB}/${den}`;
+  renderProblems(text);
   renderHighlight(text);
   renderPalette();
   renderPreview();
@@ -200,6 +216,52 @@ function update() {
   syncCaret();
   if (player.on) player.reschedule();
 }
+
+// ------------------------------------------------------------ problems
+// chords that cannot be read, bars of the wrong length, {key: C}
+let probs = [];
+function renderProblems(text) {
+  probs = [];
+  for (const tok of S.tokens) if (tok.kind === K.ERR) probs.push({ o: tok.o0, tok, msg: `コードとして読めない [${text.slice(tok.o0, tok.o1)}]` });
+  for (const w of S.warnings) probs.push({ o: w.tok.o0, tok: w.tok, msg: `小節の長さが${+w.written.toFixed(2)}拍（拍子は${+w.meter.toFixed(2)}拍）` });
+  let pos = 0;
+  for (const line of text.split('\n')) {
+    const t = line.trimStart();
+    if (/^\{key:\s/.test(t)) probs.push({ o: pos + line.length - t.length, msg: '{key:の後ろに空白があってキーにならない' });
+    pos += line.length + 1;
+  }
+  probs.sort((a, b) => a.o - b.o);
+  const lineOf = (o) => text.slice(0, o).split('\n').length;
+  $('probs').innerHTML = probs.length
+    ? probs.map((p, i) => `<div data-i="${i}"><span class="ln">${lineOf(p.o)}行</span>${esc(p.msg)}</div>`).join('')
+    : '<div class="none">問題なし</div>';
+  $('probBtn').textContent = probs.length ? `問題${probs.length}` : '問題';
+  $('probBtn').classList.toggle('has', probs.length > 0);
+}
+function setProbs(on) {
+  document.body.classList.toggle('probs', on);
+  $('probBtn').classList.toggle('on', on);
+  if (!EMBED) store.set('csp.probs', on ? '1' : '0');
+}
+function setEditing(on) {
+  document.body.classList.toggle('editing', on);
+  $('edit').classList.toggle('on', on);
+  renderTimeline(); drawMinimap();
+}
+$('probBtn').onclick = () => {
+  const on = !document.body.classList.contains('probs');
+  if (on && EMBED) setEditing(true);
+  setProbs(on);
+};
+$('edit').onclick = () => setEditing(!document.body.classList.contains('editing'));
+$('probs').addEventListener('click', (e) => {
+  const el = e.target.closest('[data-i]');
+  if (!el) return;
+  const p = probs[+el.dataset.i];
+  if (p.tok) { goToSource(p.tok, true); const ev = S.events.find((x) => x.tok === p.tok); if (ev && !player.on) player.seek(ev.t); }
+  else { src.focus(); src.setSelectionRange(p.o, p.o); syncCaret(); }
+});
+setProbs(!EMBED && store.get('csp.probs') === '1');
 
 function renderHighlight(text) {
   const cls = new Array(text.length).fill('');
