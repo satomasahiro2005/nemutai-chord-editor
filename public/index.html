@@ -1212,7 +1212,12 @@ function jumpTo(b) {
 // to the top / to the end (like Home / End)
 $('prev').onclick = () => jumpTo(0);
 $('next').onclick = () => { jumpTo(S.total); pv.scrollTop = pv.scrollHeight; tlwrap.scrollLeft = tlwrap.scrollWidth; };
-for (const id of ['loop', 'rhythm']) $(id).onclick = () => { $(id).classList.toggle('on'); };
+// loop and rhythm stay as they were left across reloads
+for (const id of ['loop', 'rhythm']) {
+  const v = store.get('csp.' + id);
+  if (v !== null) $(id).classList.toggle('on', v === '1');
+  $(id).onclick = () => { store.set('csp.' + id, $(id).classList.toggle('on') ? '1' : '0'); };
+}
 let bpmTouched = false;
 $('bpm').oninput = () => { bpmTouched = true; if (player.on) { player.t0 = player.ctx.currentTime; player.b0 = player.pos; } drawTimeline(); drawPlayhead(); };
 $('tr').oninput = update;
