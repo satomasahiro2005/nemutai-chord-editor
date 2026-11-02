@@ -110,7 +110,7 @@ body.embed label:has(#tr) { display: none; }   /* ChordWiki's own transposition 
   <span class="title" id="title">nemutai Chord Editor</span>
   <span class="tp">
     <button id="home" title="先頭へ"><svg viewBox="0 0 16 16"><rect x="2" y="3" width="2" height="10"/><path d="M14 3v10L5 8z"/></svg></button>
-    <button id="play" title="再生 / 停止（Space）"><svg class="i-play" viewBox="0 0 16 16"><path d="M4 2.5v11l9.5-5.5z"/></svg><svg class="i-stop" viewBox="0 0 16 16"><rect x="3.5" y="3.5" width="9" height="9" rx="1"/></svg></button>
+    <button id="play" title="再生 / 一時停止（Space）"><svg class="i-play" viewBox="0 0 16 16"><path d="M4 2.5v11l9.5-5.5z"/></svg><svg class="i-stop" viewBox="0 0 16 16"><rect x="3.5" y="3" width="3" height="10" rx=".5"/><rect x="9.5" y="3" width="3" height="10" rx=".5"/></svg></button>
     <button id="loop" class="on" title="ループ"><svg viewBox="0 0 16 16"><path d="M3 7a3 3 0 0 1 3-3h5V2l3 3-3 3V6H6a1 1 0 0 0-1 1v1H3zM13 9a3 3 0 0 1-3 3H5v2l-3-3 3-3v2h5a1 1 0 0 0 1-1V8h2z"/></svg></button>
   </span>
   <button id="rhythm" class="on" title="書いた長さどおりに弾き直す">リズム</button>
@@ -455,6 +455,8 @@ function syncCaret(e) {
   const t = tokAtCaret();
   const moved = e && (e.type === 'click' || (e.type === 'keyup' && /^(Arrow|Home|End|Page)/.test(e.key)));
   if (moved && t && t.chord && t.i !== caretTok && audition && !player.on) player.audition(src.value.slice(t.o0, t.o1));
+  // clicking or arrowing onto a chord moves the playhead there (playback starts from it)
+  if (moved && t && t.i !== caretTok && !player.on) player.seek(firstEventOf(t));
   if (caretTok !== null) for (const el of tokEls[caretTok] || []) el.classList.remove('caret');
   caretTok = t ? t.i : null;
   for (const el of tokEls[caretTok] || []) el.classList.add('caret');
@@ -1084,11 +1086,10 @@ document.addEventListener('drop', async (e) => {
   const f = e.dataTransfer.files[0];
   if (f) loadText(await f.text(), f.name);
 });
-// play from the chord at the caret, or stop (the play button and Space)
+// play from the playhead, or pause (the play button and Space); at the end it starts over
 function playOrStop() {
   if (player.on) { player.stop(); return; }
-  const t = tokAtCaret();
-  player.pos = t ? firstEventOf(t) : 0;
+  if (player.pos >= S.total - 1e-6) player.pos = 0;
   player.start();
 }
 $('play').onclick = playOrStop;
