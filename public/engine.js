@@ -418,9 +418,9 @@ function readLegend(N, L, ms) {
     i = le + 1;
     let j = ls;
     while (j < le && N[j] === ' ') j++;
+    // as on ChordWiki, the key must follow the colon right away ({key: C} is not a key)
     if (j < le && N.startsWith('{key:', j)) {
       let k = j + 5;
-      while (k < le && N[k] === ' ') k++;
       if (isRoot(N[k])) {
         let pc = LETTER[N[k]]; k++;
         if (N[k] === '#') { pc++; k++; } else if (N[k] === 'b') { pc--; k++; }

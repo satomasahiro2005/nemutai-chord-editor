@@ -208,7 +208,9 @@ function renderHighlight(text) {
   let pos = 0;
   for (const line of text.split('\n')) {
     const t = line.trimStart();
-    if (t.startsWith('{')) mark(pos, pos + line.length, 'h-dir');
+    // {key: C}: ChordWiki takes no space after the colon, so it is no key there
+    if (/^\{key:\s/.test(t)) mark(pos, pos + line.length, 'h-err');
+    else if (t.startsWith('{')) mark(pos, pos + line.length, 'h-dir');
     else if (line.startsWith('#')) mark(pos, pos + line.length, 'h-com');
     else for (let i = 0; i < line.length; i++) if (line[i] === '|' || line[i] === ':' && (line[i + 1] === '|' || line[i - 1] === '|')) cls[pos + i] = 'h-bar';
     pos += line.length + 1;
@@ -268,7 +270,7 @@ function renderPreview() {
   for (const r of S.rows) {
     if (r.kind === ROW.BLANK) { html += '<div class="blank"></div>'; continue; }
     if (r.kind === ROW.TEXT) {
-      const km = text.slice(r.o0, r.o1).match(/^key:\s*(.*)$/);
+      const km = text.slice(r.o0, r.o1).match(/^key:(\S.*)$/);
       if (km) { html += `<div><span class="key${keyNo++ ? ' chg' : ''}">キー<b>${esc(km[1].trim())}</b></span></div>`; continue; }
       html += `<div class="text">${esc(text.slice(r.o0, r.o1))}</div>`; continue;
     }
@@ -409,7 +411,7 @@ const clock = (s, tenths = false) => {
 function keyMarks() {
   return (S.keys || []).slice(1).map((k) => {
     const e = S.events.find((e) => e.tok && e.tok.o0 >= k.o);
-    const m = src.value.slice(k.o).match(/^\{key:\s*([^}]*)\}/);
+    const m = src.value.slice(k.o).match(/^\{key:([^}]*)\}/);
     return e && m ? { t: e.t, name: m[1].trim() } : null;
   }).filter(Boolean);
 }
