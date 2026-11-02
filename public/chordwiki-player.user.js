@@ -2,7 +2,7 @@
 // @name         nemutai Chord Player for ChordWiki
 // @namespace    https://chord.nemut.ai/
 // @author       nemut.ai
-// @version      0.2.1
+// @version      0.3.0
 // @description  Plays ChordWiki chord sheets along a timeline, with chords coloured by degree.
 // @description:ja ChordWiki のコード譜をタイムラインに合わせて鳴らし、コードを度数で色分けします。
 // @match        https://ja.chordwiki.org/wiki/*
@@ -808,9 +808,16 @@ function readSheet() {
 }
 
 // ---------------------------------------------------------------- styles
+// html.ncp-on: this view over the page; without it, ChordWiki's own page and a button back
 const css = `
-html, body { height: 100%; margin: 0; overflow: hidden; background: #1b1d22; }
-body > :not(.ncp-root) { display: none !important; }
+html.ncp-on, html.ncp-on body { height: 100%; margin: 0; overflow: hidden; background: #1b1d22; }
+html.ncp-on body > :not(.ncp-root) { display: none !important; }
+html:not(.ncp-on) .ncp-root { display: none; }
+html.ncp-on .ncp-back { display: none; }
+.ncp-back { position: fixed; right: 14px; bottom: 14px; z-index: 2147483000; font: 700 12px "Yu Gothic UI", "Hiragino Sans", system-ui, sans-serif;
+  color: #e6e8ec; background: #1b1d22; border: 1px solid #faa333; border-radius: 16px; padding: 6px 14px; cursor: pointer; box-shadow: 0 4px 14px #0006; }
+.ncp-orig { font: inherit; color: #9db4d6; background: none; border: 0; padding: 0; cursor: pointer; }
+.ncp-orig:hover { text-decoration: underline; }
 .ncp-root { position: fixed; inset: 0; display: flex; flex-direction: column; background: #1b1d22; color: #e6e8ec;
   font: 12px "Yu Gothic UI", "Hiragino Sans", system-ui, sans-serif; z-index: 2147483000; }
 .ncp-top { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; padding: 5px 10px; background: #16181c; border-bottom: 1px solid #3a3e46; }
@@ -852,9 +859,12 @@ function main() {
   top.append(nav);
   top.append(el('span', { className: 'ncp-sep' }));
 
-  // transposition and ♯/♭ spelling: ChordWiki's own form (it reloads the page)
+  // transposition and ♯/♭ spelling: ChordWiki's own form (it reloads the page);
+  // it goes back to its place on ChordWiki's own view
   const form = document.querySelector('#key form');
-  if (form) top.append(form);
+  const formHome = form && { parent: form.parentNode, next: form.nextSibling };
+  const formSlot = el('span');
+  top.append(formSlot);
 
   // rating, tags, video
   const rate = document.querySelector('#side .ratestar a');
@@ -874,7 +884,20 @@ function main() {
     frame.contentWindow.postMessage({ type: 'nemutai-sheet', text }, VIEW);
   });
 
-  document.body.append(el('div', { className: 'ncp-root' }, [top, frame]));
+  // ChordWiki's own view, and back (remembered on this browser)
+  const setOn = (on) => {
+    document.documentElement.classList.toggle('ncp-on', on);
+    if (form) { if (on) formSlot.append(form); else formHome.parent.insertBefore(form, formHome.next); }
+    if (!on && frame.contentWindow) frame.contentWindow.postMessage({ type: 'nemutai-stop' }, VIEW);
+    try { localStorage.setItem('ncp.off', on ? '0' : '1'); } catch {}
+  };
+  top.append(el('button', { className: 'ncp-orig', textContent: '元の表示', onclick: () => setOn(false) }));
+  const back = el('button', { className: 'ncp-back', textContent: 'nemutaiで見る', onclick: () => setOn(true) });
+
+  document.body.append(el('div', { className: 'ncp-root' }, [top, frame]), back);
+  let off = false;
+  try { off = localStorage.getItem('ncp.off') === '1'; } catch {}
+  setOn(!off);
 }
 
 main();

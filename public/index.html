@@ -41,6 +41,9 @@ body.probs #probs { display: block; }
 #probs div:hover { background: var(--panel2); }
 #probs .ln { color: var(--dim); font-family: var(--mono); display: inline-block; min-width: 5ch; }
 #probs .none { color: var(--dim); cursor: default; }
+#probs button { font-size: 11px; padding: 0 7px; margin-left: 8px; }
+#probs .all { display: flex; justify-content: flex-end; cursor: default; padding: 2px 12px 4px; }
+#probs .all:hover { background: none; }
 #probs .none:hover { background: none; }
 body:not(.embed) #edit { display: none; }
 #tlwrap { overflow-x: auto; overflow-y: hidden; background: var(--panel2); border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
@@ -225,18 +228,72 @@ function renderProblems(text) {
   for (const tok of S.tokens) if (tok.kind === K.ERR) probs.push({ o: tok.o0, tok, msg: `コードとして読めない [${text.slice(tok.o0, tok.o1)}]` });
   for (const w of S.warnings) probs.push({ o: w.tok.o0, tok: w.tok, msg: `小節の長さが${+w.written.toFixed(2)}拍（拍子は${+w.meter.toFixed(2)}拍）` });
   let pos = 0;
-  for (const line of text.split('\n')) {
-    const t = line.trimStart();
-    if (/^\{key:\s/.test(t)) probs.push({ o: pos + line.length - t.length, msg: '{key:の後ろに空白があってキーにならない' });
-    pos += line.length + 1;
-  }
+  for (const line of text.split('\n')) { lintLine(line, pos); pos += line.length + 1; }
   probs.sort((a, b) => a.o - b.o);
   const lineOf = (o) => text.slice(0, o).split('\n').length;
+  const fixable = probs.filter((p) => p.fix).length;
   $('probs').innerHTML = probs.length
-    ? probs.map((p, i) => `<div data-i="${i}"><span class="ln">${lineOf(p.o)}行</span>${esc(p.msg)}</div>`).join('')
+    ? (fixable > 1 ? `<div class="all"><button data-all="1">全部直す（${fixable}件）</button></div>` : '') +
+      probs.map((p, i) => `<div data-i="${i}"><span class="ln">${lineOf(p.o)}行</span>${esc(p.msg)}${p.fix ? `<button data-f="${i}">直す</button>` : ''}</div>`).join('')
     : '<div class="none">問題なし</div>';
   $('probBtn').textContent = probs.length ? `問題${probs.length}` : '問題';
   $('probBtn').classList.toggle('has', probs.length > 0);
+}
+// what ChordWiki reads differently from what was meant; fix: { a, b, t } replaces a..b with t
+const FULL = /[\uff01-\uff5e\u3000]/g;
+const half = (s) => s.replace(FULL, (c) => (c === '\u3000' ? ' ' : String.fromCharCode(c.charCodeAt(0) - 0xfee0)));
+function lintLine(line, pos) {
+  const t = line.trimStart(), lead = line.length - t.length;
+  if (t.startsWith('#')) return;
+  if (t.startsWith('{')) {
+    const m = t.match(/^\{key:(\s+)/);
+    if (m) probs.push({ o: pos + lead, msg: '{key:の後ろに空白があってキーにならない', fix: { a: pos + lead + 5, b: pos + lead + 5 + m[1].length, t: '' } });
+    if (!t.includes('}')) probs.push({ o: pos + lead, msg: '{が閉じていない' });
+    return;
+  }
+  // brackets: [] empty, [am] lowercase, full-width inside, ［C］ full-width brackets
+  let bare = [], hasBar = false, depth = 0, open = -1;
+  for (let i = 0; i < line.length; i++) {
+    const c = line[i];
+    if (c === '[') { if (depth === 0) open = i; depth++; continue; }
+    if (c === ']' && depth > 0) {
+      if (--depth > 0) continue;
+      const body = line.slice(open + 1, i), o = pos + open;
+      if (body === '|') hasBar = true;
+      else if (body === '') probs.push({ o, msg: '空の[]', fix: { a: o, b: pos + i + 1, t: '' } });
+      else if (/^[a-g][#b♯♭]?(m|M|maj|dim|aug|sus|add|\d|$)/.test(body) && !/\s/.test(body))
+        probs.push({ o, msg: `小文字で始まるのでコードにならない [${body}]`, fix: { a: o + 1, b: o + 1 + body.length, t: body.replace(/^[a-g]|\/[a-g]/g, (x) => x.toUpperCase()) } });
+      else if (FULL.test(body)) { FULL.lastIndex = 0; probs.push({ o, msg: `全角の文字がある [${body}]`, fix: { a: o + 1, b: o + 1 + body.length, t: half(body) } }); }
+      FULL.lastIndex = 0;
+      continue;
+    }
+    if (c === '|' && depth === 0) bare.push(i);
+  }
+  if (depth > 0) probs.push({ o: pos + open, msg: '[が閉じていない' });
+  for (const m of line.matchAll(/［([^］\n]*)］/g)) {
+    const o = pos + m.index;
+    probs.push({ o, msg: `全角の［］はコードにならない ${m[0]}`, fix: { a: o, b: o + m[0].length, t: `[${half(m[1])}]` } });
+  }
+  // | and [|] on one line: ChordWiki shows the bare | as text
+  if (hasBar && bare.length) {
+    const simple = bare.every((i) => line[i - 1] !== ':' && line[i + 1] !== ':' && line[i - 1] !== '|' && line[i + 1] !== '|');
+    let fixed = line;
+    for (const i of [...bare].reverse()) fixed = fixed.slice(0, i) + '[|]' + fixed.slice(i + 1);
+    probs.push({ o: pos + bare[0], msg: '|と[|]が同じ行にある', fix: simple ? { a: pos, b: pos + line.length, t: fixed } : null });
+  }
+}
+function applyFixes(list) {
+  // one edit (one undo) from the first to the last fixed place, later ones first
+  list = list.filter((p) => p.fix).sort((x, y) => y.fix.a - x.fix.a);
+  if (!list.length) return;
+  const a = Math.min(...list.map((p) => p.fix.a)), b = Math.max(...list.map((p) => p.fix.b));
+  let out = src.value.slice(a, b), last = Infinity;
+  for (const { fix } of list) {
+    if (fix.b > last) continue;   // overlapping fixes: the later one waits for the next round
+    out = out.slice(0, fix.a - a) + fix.t + out.slice(fix.b - a);
+    last = fix.a;
+  }
+  insertText(out, a, b);
 }
 function setProbs(on) {
   document.body.classList.toggle('probs', on);
@@ -255,6 +312,8 @@ $('probBtn').onclick = () => {
 };
 $('edit').onclick = () => setEditing(!document.body.classList.contains('editing'));
 $('probs').addEventListener('click', (e) => {
+  if (e.target.dataset.all) { applyFixes(probs); return; }
+  if (e.target.dataset.f) { applyFixes([probs[+e.target.dataset.f]]); return; }
   const el = e.target.closest('[data-i]');
   if (!el) return;
   const p = probs[+el.dataset.i];
@@ -1317,8 +1376,9 @@ $('split').addEventListener('mousedown', (e) => {
 
 if (EMBED) {
   window.addEventListener('message', (e) => {
-    if (e.origin !== EMBED_FROM || !e.data || e.data.type !== 'nemutai-sheet') return;
-    loadText(String(e.data.text || ''));
+    if (e.origin !== EMBED_FROM || !e.data) return;
+    if (e.data.type === 'nemutai-sheet') loadText(String(e.data.text || ''));
+    if (e.data.type === 'nemutai-stop' && player.on) player.stop();   // back to ChordWiki's own view
   });
   loadText('');
   window.parent.postMessage({ type: 'nemutai-ready' }, EMBED_FROM);
