@@ -36,8 +36,8 @@ button.on { border-color: var(--hi); color: var(--hi); }
 #info { color: var(--dim); }
 #tlwrap { overflow-x: auto; overflow-y: hidden; background: var(--panel2); border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
 #tlwrap { position: relative; }
-#tlspace { height: 92px; }
-#tl { position: absolute; top: 0; left: 0; display: block; height: 92px; cursor: pointer; }
+#tlspace { height: 76px; }
+#tl { position: absolute; top: 0; left: 0; display: block; height: 76px; cursor: pointer; }
 main { display: grid; grid-template-columns: var(--left, 42%) 6px 1fr 120px; min-height: 0; }
 #split { cursor: col-resize; background: var(--line); opacity: .35; }
 #split:hover, #split.drag { opacity: 1; background: var(--hi); }
@@ -269,7 +269,7 @@ function renderPreview() {
     if (r.kind === ROW.BLANK) { html += '<div class="blank"></div>'; continue; }
     if (r.kind === ROW.TEXT) {
       const km = text.slice(r.o0, r.o1).match(/^key:\s*(.*)$/);
-      if (km) { html += `<div><span class="key${keyNo++ ? ' chg' : ''}">${keyNo > 1 ? '転調' : 'キー'}<b>${esc(km[1].trim())}</b></span></div>`; continue; }
+      if (km) { html += `<div><span class="key${keyNo++ ? ' chg' : ''}">キー<b>${esc(km[1].trim())}</b></span></div>`; continue; }
       html += `<div class="text">${esc(text.slice(r.o0, r.o1))}</div>`; continue;
     }
     if (r.kind === ROW.LABEL) { html += `<div class="label">${esc(text.slice(r.o0, r.o1))}</div>`; continue; }
@@ -344,7 +344,7 @@ function renderTimeline() {
   drawPlayhead();
 }
 function drawTimeline() {
-  const dpr = window.devicePixelRatio || 1, w = tlwrap.clientWidth, h = 92, sl = tlwrap.scrollLeft;
+  const dpr = window.devicePixelRatio || 1, w = tlwrap.clientWidth, h = 76, sl = tlwrap.scrollLeft;
   if (tl.width !== Math.round(w * dpr)) { tl.width = Math.round(w * dpr); tl.height = h * dpr; tl.style.width = w + 'px'; tl.style.height = h + 'px'; }
   tl.style.left = sl + 'px';
   const g = tl.getContext('2d');
@@ -352,29 +352,26 @@ function drawTimeline() {
   g.fillStyle = '#16181c'; g.fillRect(sl, 0, w, h);
   const X = (b) => 12 + b * view.pxq, b0 = (sl - 20) / view.pxq, b1 = (sl + w) / view.pxq;
   g.font = '10px sans-serif';
+  // bar number and the real time it starts at (the time left out where bars are too narrow)
+  const spb = 60 / player.bpm(), labelEnd = new Map();
   S.barLines.forEach((b, i) => {
     if (b < b0 - 50 || b > b1) return;
-    g.fillStyle = i % 4 === 0 ? '#6d7480' : '#3a3e46'; g.fillRect(X(b), 0, 1, h);   // every 4 bars a little whiter
-    g.fillStyle = '#6d7480'; g.fillText(String(i + 1), X(b) + 3, 11);
+    const x = X(b), n = String(i + 1), tm = clock(b * spb, true), nw = g.measureText(n).width;
+    g.fillStyle = i % 4 === 0 ? '#6d7480' : '#3a3e46'; g.fillRect(x, 0, 1, h);   // every 4 bars a little whiter
+    g.fillStyle = '#6d7480'; g.fillText(n, x + 3, 11);
+    const room = (i + 1 < S.barLines.length ? X(S.barLines[i + 1]) : X(S.total)) - x;
+    let end = x + 3 + nw;
+    if (nw + g.measureText(tm).width + 14 <= room) { g.fillStyle = '#4f545d'; g.fillText(tm, end + 5, 11); end += 5 + g.measureText(tm).width; }
+    labelEnd.set(i, end);
   });
   g.fillStyle = '#3a3e46'; g.fillRect(X(S.total), 0, 1, h);
-  // real time along the bottom, at a step that leaves room for the labels
-  const spb = 60 / player.bpm(), step = [1, 2, 5, 10, 15, 30, 60, 120, 300].find((s) => s / spb * view.pxq >= 56) || 600;
-  g.fillStyle = '#16181c'; g.fillRect(sl, h - 16, w, 16);
-  g.fillStyle = '#3a3e46'; g.fillRect(sl, h - 16, w, 1);
-  g.font = '10px ui-monospace, Consolas, monospace';
-  for (let s = Math.max(0, Math.floor(b0 * spb / step) * step); s / spb <= Math.min(b1, S.total); s += step) {
-    const x = X(s / spb);
-    g.fillStyle = '#3a3e46'; g.fillRect(x, h - 16, 1, 5);
-    g.fillStyle = '#6d7480'; g.fillText(clock(s), x + 3, h - 4);
-  }
   // key changes: a line and the new key at the top
   g.font = 'bold 10px sans-serif';
   for (const k of keyMarks()) {
     if (k.t < b0 - 50 || k.t > b1) continue;
     const x = X(k.t), bi = S.barLines.findIndex((b) => Math.abs(b - k.t) < 1e-6);
-    const lx = x + 3 + (bi >= 0 ? g.measureText(String(bi + 1)).width + 6 : 0), tw = g.measureText(k.name).width;
-    g.fillStyle = '#faa333'; g.fillRect(x, 0, 2, h - 16);
+    const lx = labelEnd.has(bi) ? labelEnd.get(bi) + 9 : x + 3, tw = g.measureText(k.name).width;
+    g.fillStyle = '#faa333'; g.fillRect(x, 0, 2, h);
     g.fillRect(lx - 3, 1, tw + 6, 13);
     g.fillStyle = '#15120c'; g.fillText(k.name, lx, 11);
   }
@@ -403,7 +400,11 @@ function drawTimeline() {
     g.fillStyle = '#f26161'; g.fillText(`${+wn.written.toFixed(2)}拍`, x0 + 4, 74);
   }
 }
-const clock = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
+// m:ss, or m:ss.s for a bar line
+const clock = (s, tenths = false) => {
+  if (tenths) { s = Math.round(s * 10) / 10; return `${Math.floor(s / 60)}:${(s % 60).toFixed(1).padStart(4, '0')}`; }
+  return `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
+};
 // each {key:} after the first, at the first chord it applies to
 function keyMarks() {
   return (S.keys || []).slice(1).map((k) => {
@@ -422,7 +423,7 @@ let phEl = null;
 function drawPlayhead() {
   if (!phEl) {
     phEl = document.createElement('div');
-    phEl.style.cssText = 'position:absolute;top:0;width:2px;height:92px;background:#fff;pointer-events:none';
+    phEl.style.cssText = 'position:absolute;top:0;width:2px;height:76px;background:#fff;pointer-events:none';
     tlwrap.appendChild(phEl);
   }
   phEl.style.left = 12 + player.pos * view.pxq + 'px';
