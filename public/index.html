@@ -24,7 +24,14 @@ button.on { border-color: var(--hi); color: var(--hi); }
 #bar .sep { flex: 1; }
 #bar label { color: var(--dim); display: flex; gap: 4px; align-items: center; }
 #bar input[type=number] { width: 4.5em; }
-#play { min-width: 4.5em; }
+.tp { display: flex; }
+.tp button { display: grid; place-items: center; width: 34px; height: 30px; padding: 0; border-radius: 0; margin-left: -1px; }
+.tp button:first-child { border-radius: 6px 0 0 6px; margin-left: 0; }
+.tp button:last-child { border-radius: 0 6px 6px 0; }
+.tp button:hover, .tp button.on { position: relative; }
+.tp svg { width: 16px; height: 16px; fill: currentColor; }
+#play .i-stop, #play.on .i-play { display: none; }
+#play.on .i-stop { display: block; }
 #info { color: var(--dim); }
 #tlwrap { overflow-x: auto; overflow-y: hidden; background: var(--panel2); border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
 #tlwrap { position: relative; }
@@ -67,6 +74,7 @@ main { display: grid; grid-template-columns: var(--left, 42%) 6px 1fr 120px; min
 .grid { display: flex; }
 .grid .b { flex: 1; position: relative; height: 54px; border-left: 1px solid var(--line); min-width: 0; }
 .grid .b.end { border-right: 1px solid var(--line); }
+.grid .b.q, .flow .b.barred.q { border-left-color: #6d7480; }   /* every 4 bars a little whiter */
 .grid .b.short { height: 40px; }
 .grid .g { position: absolute; top: 33px; font-size: 13px; }
 .flow { display: flex; flex-wrap: wrap; align-items: flex-start; padding: 4px 0; }
@@ -100,8 +108,11 @@ body.embed label:has(#tr) { display: none; }   /* ChordWiki's own transposition 
 <body>
 <div id="bar">
   <span class="title" id="title">nemutai Chord Editor</span>
-  <button id="play" title="Space でカーソル位置のコードから（空白は Ctrl+Space）">再生</button>
-  <button id="loop" class="on">ループ</button>
+  <span class="tp">
+    <button id="home" title="先頭へ"><svg viewBox="0 0 16 16"><rect x="2" y="3" width="2" height="10"/><path d="M14 3v10L5 8z"/></svg></button>
+    <button id="play" title="再生 / 停止（Space）"><svg class="i-play" viewBox="0 0 16 16"><path d="M4 2.5v11l9.5-5.5z"/></svg><svg class="i-stop" viewBox="0 0 16 16"><rect x="3.5" y="3.5" width="9" height="9" rx="1"/></svg></button>
+    <button id="loop" class="on" title="ループ"><svg viewBox="0 0 16 16"><path d="M3 7a3 3 0 0 1 3-3h5V2l3 3-3 3V6H6a1 1 0 0 0-1 1v1H3zM13 9a3 3 0 0 1-3 3H5v2l-3-3 3-3v2h5a1 1 0 0 0 1-1V8h2z"/></svg></button>
+  </span>
   <button id="rhythm" class="on" title="書いた長さどおりに弾き直す">リズム</button>
   <label>BPM <input id="bpm" type="number" min="20" max="400" step="1"></label>
   <label>移調 <input id="tr" type="number" min="-12" max="12" step="1" value="0"></label>
@@ -246,7 +257,8 @@ function glyphsHtml(tok) {
 function renderPreview() {
   const text = src.value;
   const warnTok = new Set(S.warnings.map((w) => w.tok.i));
-  let html = '';
+  let html = '', barNo = 0;
+  const q = () => (barNo++ % 4 === 0 ? ' q' : '');
   for (const r of S.rows) {
     if (r.kind === ROW.BLANK) { html += '<div class="blank"></div>'; continue; }
     if (r.kind === ROW.TEXT) { html += `<div class="text">${esc(text.slice(r.o0, r.o1))}</div>`; continue; }
@@ -260,7 +272,7 @@ function renderPreview() {
         const bars = r.bars.slice(i, i + per);
         for (const [bi, b] of bars.entries()) {
           const w = b.tokens.length && warnTok.has(b.tokens[0].i) ? ' warn' : '';
-          html += `<div class="b${has ? '' : ' short'}${w}${bi === bars.length - 1 && b.closed ? ' end' : ''}">`;
+          html += `<div class="b${q()}${has ? '' : ' short'}${w}${bi === bars.length - 1 && b.closed ? ' end' : ''}">`;
           for (const tok of b.tokens) {
             const x = tok.t >= 0 ? (tok.t / b.len) * 100 : 96;
             html += `<span style="position:absolute;left:calc(${x}% + 4px);top:8px">${tokHtml(tok, text)}</span>`;
@@ -285,7 +297,7 @@ function renderPreview() {
     }
     r.bars.forEach((b, k) => {
       const w = b.tokens.length && warnTok.has(b.tokens[0].i) ? ' warn' : '';
-      html += `<div class="b${r.barred && !b.cont ? ' barred' : ''}${r.barred && k === r.bars.length - 1 && b.closed ? ' last' : ''}${w}">`;
+      html += `<div class="b${r.barred && !b.cont ? ' barred' + q() : ''}${r.barred && k === r.bars.length - 1 && b.closed ? ' last' : ''}${w}">`;
       for (const tok of b.tokens) {
         const ly = tok.ly0 >= 0 ? lyricText(text, tok.ly0, tok.ly1) : '';
         html += `<div class="cell"><div class="cl">${tokHtml(tok, text)}${glyphsHtml(tok)}</div><div class="ly">${esc(ly) || '&nbsp;'}</div></div>`;
@@ -907,7 +919,7 @@ const player = {
     const c = this.audio();
     c.resume();
     this.on = true;
-    $('play').textContent = '停止'; $('play').classList.add('on');
+    $('play').classList.add('on');
     this.t0 = c.currentTime + 0.05; this.b0 = this.pos;
     this.reschedule();
     this.timer = setInterval(() => this.tick(), 25);
@@ -919,7 +931,7 @@ const player = {
     if (this.ctx) this.release(this.ctx.currentTime);
     // and All Notes Off after everything already scheduled
     if (this.midi) this.midi.send([0xb0, 123, 0], Math.max(performance.now(), (this.lastSched || 0) + 2));
-    $('play').textContent = '再生'; $('play').classList.remove('on');
+    $('play').classList.remove('on');
     this.mark(-1, null);
   },
   // sound what is playing at the current position, then queue from there
@@ -1080,6 +1092,12 @@ function playOrStop() {
   player.start();
 }
 $('play').onclick = playOrStop;
+// back to the top: caret and playhead (a playing song goes on from there)
+$('home').onclick = () => {
+  src.setSelectionRange(0, 0); src.scrollTop = 0; syncCaret();
+  pv.scrollTop = 0; tlwrap.scrollLeft = 0;
+  player.seek(0);
+};
 for (const id of ['loop', 'rhythm']) $(id).onclick = () => { $(id).classList.toggle('on'); };
 let bpmTouched = false;
 $('bpm').oninput = () => { bpmTouched = true; if (player.on) { player.t0 = player.ctx.currentTime; player.b0 = player.pos; } };
