@@ -755,9 +755,10 @@ export function renderNotes(S, { rhythm = true, vel = 100, accVel = 127 } = {}) 
 // A band of two parts, as Hookpad has it, in place of striking the written
 // voicing: the right hand plays 3-4 chord tones around middle C that move as
 // little as possible from the last chord, and the bass plays the root (or the
-// on-chord bass) in octave 2. Each part has its own pattern on an eighth-note
-// grid that follows the bar; every chord change is struck where it is written.
-export const HARM = ['block', 'whole', 'quarter', 'eighth', 'synco', 'arp'];
+// on-chord bass) in octave 2. Each part has its own pattern on a sixteenth-note
+// grid that follows the bar (and the shuffle); every chord change is struck
+// where it is written.
+export const HARM = ['block', 'whole', 'quarter', 'eighth', 'sixteenth', 'synco', 'arp', 'arp16'];
 export const BASS = ['none', 'whole', 'dotted', 'eighth', 'fifth'];
 
 const mod12 = (x) => ((x % 12) + 12) % 12;
@@ -786,32 +787,35 @@ function pianoVoicing(ch, prev) {
            arp: up.concat(up.slice(1, -1).reverse()) };
 }
 
-// eighth j of a bar of n8 eighths, spb eighths a beat -> what the part plays there
-// (null: nothing; len: the note's length in eighths, else until the part's next note)
-function harmAt(style, j, n8, spb) {
-  const beat = j % spb === 0 ? j / spb : -1;
+// sixteenth j of a bar of n sixteenths, spb sixteenths a beat -> what the part
+// plays there (null: nothing; len: the note's length in sixteenths, else until
+// the part's next note; soft: off the beat)
+function harmAt(style, j, n, spb) {
+  const beat = j % spb === 0 ? j / spb : -1, e8 = j % 2 === 0 ? j / 2 : -1, spb8 = spb / 2;
   switch (style) {
     case 'whole': return j === 0 ? {} : null;
     case 'quarter': return beat >= 0 ? { len: spb * 0.9, soft: beat > 0 } : null;
-    case 'eighth': return { len: 0.8, soft: j % spb !== 0 };
+    case 'eighth': return e8 >= 0 ? { len: 1.6, soft: e8 % spb8 !== 0 } : null;
+    case 'sixteenth': return { len: 0.8, soft: beat !== 0, ghost: e8 < 0 };
     case 'synco':
-      if (n8 !== 8) return beat >= 0 ? { soft: beat > 0 } : null;
-      return [0, 3, 6].includes(j) ? { soft: j > 0 } : null;
-    case 'arp': return {};
+      if (n !== 16) return beat >= 0 ? { soft: beat > 0 } : null;
+      return [0, 6, 12].includes(j) ? { soft: j > 0 } : null;
+    case 'arp': return e8 >= 0 ? {} : null;
+    case 'arp16': return {};
   }
   return null;
 }
-function bassAt(style, j, n8, spb) {
-  const beat = j % spb === 0 ? j / spb : -1, nb = n8 / spb;
+function bassAt(style, j, n, spb) {
+  const beat = j % spb === 0 ? j / spb : -1, e8 = j % 2 === 0 ? j / 2 : -1, nb = n / spb;
   const half = nb % 2 === 0 && nb > 2 ? nb / 2 : 0;   // the middle of the bar, in beats
   switch (style) {
     case 'whole': return j === 0 ? {} : null;
     // Hookpad's Piano Bass Dotted: a dotted quarter and an eighth, every half bar
     case 'dotted': {
-      const h = half ? half * spb : n8, k = j % h;
-      return k === 0 ? {} : spb === 2 && k === 3 && h >= 4 ? { soft: true } : null;
+      const h = half ? half * spb : n, k = j % h;
+      return k === 0 ? {} : spb === 4 && k === 6 && h >= 8 ? { soft: true } : null;
     }
-    case 'eighth': return { len: 0.85, soft: j % spb !== 0 };
+    case 'eighth': return e8 >= 0 ? { len: 1.7, soft: j % spb !== 0 } : null;
     case 'fifth': return beat === 0 ? {} : half && beat === half ? { fifth: true } : null;
   }
   return null;
@@ -819,7 +823,9 @@ function bassAt(style, j, n8, spb) {
 
 // One pass of the accompaniment as notes [{ t, n, d, v }] sorted by time
 // (quarters). harm 'block' is the written voicing and is not played from here.
-export function accompany(S, { harm = 'whole', bass = 'dotted', vel = 100 } = {}) {
+// rhythm: a bar whose written rhythm is more than an even run of notes (an
+// accent, a キメ) is played as written, with both parts, instead of the patterns.
+export function accompany(S, { harm = 'whole', bass = 'dotted', vel = 100, rhythm = true } = {}) {
   const out = [];
   if (harm === 'block' || !S.events.length || S.total <= 0) return out;
   const segs = [];
@@ -834,27 +840,62 @@ export function accompany(S, { harm = 'whole', bass = 'dotted', vel = 100 } = {}
   const bl = [...new Set(S.barLines)].sort((a, b) => a - b);
   if (!bl.length || bl[0] > 1e-6) bl.unshift(0);
   const barAt = (t) => { let i = 0; while (i + 1 < bl.length && bl[i + 1] <= t + 1e-6) i++; return i; };
-  const g = 0.5, spb = Math.max(1, Math.round(S.MU / g));
+  const barEnd = (i) => (i + 1 < bl.length ? bl[i + 1] : S.total);
+  const g = 0.25;
+  const spb = Math.max(1, Math.round(S.MU / g));
+  // shuffle as the parser does it: 16ths and/or 8ths off the beat come later
   const swing = (p) => {
+    if (S.legend.swing16) { const f = p - Math.floor(p * 2 + 1e-6) / 2; if (Math.abs(f - 0.25) < 1e-4) p += 1 / 12; }
     if (S.legend.swing8) { const f = p - Math.floor(p + 1e-6); if (Math.abs(f - 0.5) < 1e-4) p += 1 / 6; }
+    return p;
+  };
+  const unswing = (p) => {
+    if (S.legend.swing8) { const f = p - Math.floor(p + 1e-6); if (Math.abs(f - 0.5 - 1 / 6) < 1e-4) p -= 1 / 6; }
+    if (S.legend.swing16) { const f = p - Math.floor(p * 2 + 1e-6) / 2; if (Math.abs(f - 0.25 - 1 / 12) < 1e-4) p -= 1 / 12; }
     return p;
   };
   const V = (x) => Math.max(1, Math.min(127, Math.round(x)));
   const push = (t, n, end, v) => { if (end > t + 1e-6 && n >= 0 && n <= 127) out.push({ t, n, d: end - t, v: V(v) }); };
+
+  // bars played as written: an accent, or notes that are not an even run from the bar's start
+  const kime = new Map();   // bar index -> [{ t, acc }]
+  if (rhythm) {
+    const byBar = new Map();
+    for (const e of S.events) {
+      if (![K.PLAY, K.STREAK, K.HIT].includes(e.kind) || e.t >= S.total - 1e-6) continue;
+      const bi = barAt(e.t);
+      if (!byBar.has(bi)) byBar.set(bi, []);
+      const list = byBar.get(bi), last = list[list.length - 1];
+      if (last && Math.abs(last.t - e.t) < 1e-6) last.acc = last.acc || e.acc;
+      else list.push({ t: e.t, acc: e.acc });
+      if (e.kind === K.HIT) list.written = true;
+    }
+    // (only bars with written lengths: chords alone are placed, not written in rhythm)
+    for (const [bi, list] of byBar) {
+      if (!list.written || (list.length < 2 && !list.some((x) => x.acc))) continue;
+      const b0 = bl[bi], ps = list.map((x) => unswing(x.t - b0)), gap = ps.length > 1 ? ps[1] - ps[0] : barEnd(bi) - b0;
+      const even = Math.abs(ps[0]) < 1e-4 && ps.every((p, k) => Math.abs(p - k * gap) < 1e-4) &&
+        Math.abs(barEnd(bi) - b0 - ps.length * gap) < 1e-4;
+      if (list.some((x) => x.acc) || !even) kime.set(bi, list);
+    }
+  }
+  const inKime = (t) => kime.has(barAt(t));
+
   // the hits of one part over a chord: its pattern, and the chord change itself
   const hitsOf = (sg, at) => {
     const hits = [];
     for (let bi = barAt(sg.t0); bi < bl.length && bl[bi] < sg.t1 - 1e-6; bi++) {
-      const b0 = bl[bi], b1 = bi + 1 < bl.length ? bl[bi + 1] : S.total, n8 = Math.round((b1 - b0) / g);
-      for (let j = 0; j < n8; j++) {
+      if (kime.has(bi)) continue;
+      const b0 = bl[bi], b1 = barEnd(bi), n = Math.round((b1 - b0) / g);
+      for (let j = 0; j < n; j++) {
         const p = b0 + j * g;
         if (p < sg.t0 - 1e-6 || p >= sg.t1 - 1e-6) continue;
-        const h = at(j, n8, spb);
+        const h = at(j, n, spb);
         if (h) hits.push({ ...h, t: b0 + swing(j * g), b1, bar: j === 0 });
       }
     }
-    if (!hits.length || hits[0].t > sg.t0 + 1e-6) hits.unshift({ t: sg.t0, b1: bl[barAt(sg.t0) + 1] ?? S.total });
-    Object.assign(hits[0], { start: true, soft: false, fifth: false });
+    if (!inKime(sg.t0) && (!hits.length || hits[0].t > sg.t0 + 1e-6)) hits.unshift({ t: sg.t0, b1: barEnd(barAt(sg.t0)) });
+    if (hits.length && Math.abs(hits[0].t - sg.t0) < 1e-6) Object.assign(hits[0], { start: true, soft: false, ghost: false, fifth: false });
     hits.forEach((h, i) => { h.end = Math.min(sg.t1, i + 1 < hits.length ? hits[i + 1].t : sg.t1, h.len ? h.t + h.len * g : Infinity); });
     return hits;
   };
@@ -862,12 +903,12 @@ export function accompany(S, { harm = 'whole', bass = 'dotted', vel = 100 } = {}
   for (const sg of segs) {
     if (!sg.ch || sg.t1 <= sg.t0 + 1e-6) continue;
     const vo = pianoVoicing(sg.ch, prev);
-    prev = vo;
+    prev = vo; sg.vo = vo;
     const acc = sg.acc ? 27 : 0;
     let ai = 0;
-    for (const h of hitsOf(sg, (j, n8, spb) => harmAt(harm, j, n8, spb))) {
-      const v = (h.soft ? vel * 0.75 : vel * 0.9) + (h.start ? acc : 0);
-      if (harm === 'arp') {
+    for (const h of hitsOf(sg, (j, n, spb) => harmAt(harm, j, n, spb))) {
+      const v = (h.ghost ? vel * 0.6 : h.soft ? vel * 0.75 : vel * 0.9) + (h.start ? acc : 0);
+      if (harm === 'arp' || harm === 'arp16') {
         // the broken chord starts again at each bar and chord, and is pedalled to the bar's end
         if (h.bar || h.start) ai = 0;
         push(h.t, vo.arp[ai++ % vo.arp.length], Math.min(sg.t1, h.b1), ai === 1 ? v : vel * 0.75);
@@ -877,10 +918,21 @@ export function accompany(S, { harm = 'whole', bass = 'dotted', vel = 100 } = {}
       }
     }
     if (bass !== 'none') {
-      for (const h of hitsOf(sg, (j, n8, spb) => bassAt(bass, j, n8, spb))) {
+      for (const h of hitsOf(sg, (j, n, spb) => bassAt(bass, j, n, spb))) {
         push(h.t, h.fifth ? vo.fifth : vo.bass, h.end, (h.soft ? vel * 0.8 : vel * 0.95) + (h.start ? acc : 0));
       }
     }
+  }
+  // the bars played as written: chord and bass on every written note
+  for (const [bi, list] of kime) {
+    list.forEach((x, k) => {
+      const sg = segs.find((s) => s.vo && s.t0 <= x.t + 1e-6 && x.t < s.t1 - 1e-6);
+      if (!sg) return;
+      const end = Math.min(sg.t1, k + 1 < list.length ? list[k + 1].t : barEnd(bi));
+      const v = vel * 0.9 + (x.acc ? 27 : 0);
+      for (const n of sg.vo.rh) push(x.t, n, end, v);
+      if (bass !== 'none') push(x.t, sg.vo.bass, end, vel * 0.95 + (x.acc ? 27 : 0));
+    });
   }
   out.sort((a, b) => a.t - b.t || a.n - b.n);
   // the same key struck again while it still sounds: the earlier one ends there

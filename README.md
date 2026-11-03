@@ -14,7 +14,7 @@ The whole app is two files, `public/index.html` and `public/engine.js` (plus the
 - The preview colours each chord by its scale degree in the key and shows lyrics and note lengths under the chords
 - The timeline draws each chord as a block as long as it sounds; bars whose written lengths don't fill the meter (or overflow it) are marked in red with their length in beats
 - Plays through the built-in sounds or a Web MIDI output, lighting up the current chord and the current note
-- Accompaniment as a two-part band like Hookpad's: 和音 (the right hand, 3-4 chord tones that move as little as possible: 白玉, 4分, 8分, シンコペ, アルペジオ) and ベース (白玉, 付点 = dotted quarter + eighth, 8分, ルートと5度). ベタ打ち keeps the written voicing, as rechord plays it; chord previews always use that voicing
+- Accompaniment as a two-part band like Hookpad's: 和音 (the right hand, 3-4 chord tones that move as little as possible: 白玉, 4分, 8分, 16分, シンコペ, アルペジオ, 16分アルペジオ) and ベース (白玉, 付点 = dotted quarter + eighth, 8分, ルートと5度). The patterns follow the bar and the song's shuffle, chord changes sound where they are written, and with リズム on a bar with an accent or a キメ (anything but an even run of notes) is played as written by both parts. ベタ打ち keeps the written voicing, as rechord plays it; chord previews always use that voicing
 - Built-in sounds: a sampled piano (Salamander Grand Piano), an electric piano, a simple synth (Wave, Detune, Cutoff, Resonance, Filter Env, ADSR) and the plain tone (シンプル)
 - Exports a `.mid` file that drops straight onto a DAW timeline
 - Open, save or drag in `.txt` files
