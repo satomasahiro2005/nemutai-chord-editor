@@ -1576,6 +1576,17 @@ function openMidi() {
 }
 $('out').onfocus = $('out').onmousedown = openMidi;
 if (store.get('csp.out')) openMidi();
+// leaving the page (back, another page, closing the tab, or ChordWiki moving on
+// around the embedded view): drop what is queued ahead and silence every key
+// right away, so nothing hangs on the MIDI output
+addEventListener('pagehide', () => {
+  const out = player.midi;
+  if (player.on) player.stop();
+  if (!out) return;
+  try { out.clear && out.clear(); } catch {}
+  for (let n = 0; n < 128; n++) out.send([0x80, n, 0]);
+  out.send([0xb0, 123, 0]);
+});
 
 // zoom for the editor (l) and the preview (r) each, as in VS Code: Ctrl+wheel
 // over a pane, or the keys above for the pane last used
