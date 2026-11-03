@@ -184,15 +184,21 @@ export function parseChord(N, t0, t1, octave = 3, transpose = 0) {
   for (let k = 0; k < 7; k++) if (TN[k] !== null) NL.push(base + OFF13[k] + TN[k]);
   // fewer than five notes: double from the third note down (rechord fixNotes)
   for (let k = NL.length - 3; k < 2; k++) if (k >= 0) NL.push(NL[k] + 12);
+  // the chord tones as offsets from the root, for the accompaniment's own voicing
+  const iv = [];
+  for (let k = 0; k < 7; k++) if (TN[k] !== null) iv.push({ k, s: OFF13[k] + TN[k] });
   // on-chord: bass below the chord unless it names the root itself
+  let bass = null;
   if (d0 >= 0 && !(dsh && dfl) && N.slice(d0, dend) !== N.slice(t0, rend)) {
     let bm = 12 * (octave + 1) + LETTER[N[d0]] + dacc;
     if (NL[0] <= bm) bm -= 12;
     NL.unshift(bm);
+    bass = bm + transpose;
   }
   return {
     notes: NL.map((x) => Math.max(0, Math.min(127, x + transpose))),
     rpc: (LETTER[c] + acc + 24) % 12,
+    root: base + transpose, iv, bass,
   };
 }
 
@@ -743,4 +749,146 @@ export function renderNotes(S, { rhythm = true, vel = 100, accVel = 127 } = {}) 
     }
   }
   return out;
+}
+
+// ------------------------------------------------------------------ accompaniment
+// A band of two parts, as Hookpad has it, in place of striking the written
+// voicing: the right hand plays 3-4 chord tones around middle C that move as
+// little as possible from the last chord, and the bass plays the root (or the
+// on-chord bass) in octave 2. Each part has its own pattern on an eighth-note
+// grid that follows the bar; every chord change is struck where it is written.
+export const HARM = ['block', 'whole', 'quarter', 'eighth', 'synco', 'arp'];
+export const BASS = ['none', 'whole', 'dotted', 'eighth', 'fifth'];
+
+const mod12 = (x) => ((x % 12) + 12) % 12;
+function pianoVoicing(ch, prev) {
+  const bass = 35 + mod12((ch.bass ?? ch.root) - 35);   // B1..A#2
+  const t = ch.iv.slice();
+  const drop = (f) => { const i = t.findIndex(f); if (t.length > 4 && i >= 0) t.splice(i, 1); };
+  drop((x) => x.k === 2 && x.s === 7);   // the plain fifth
+  // the root, which the bass has (3-note right hand for 7ths)
+  if (ch.bass === null && t.length >= 4) t.splice(t.findIndex((x) => x.k === 0), 1);
+  while (t.length > 4) t.splice(t.length - 2, 1);   // keep the top tension
+  const pcs = [...new Set(t.map((x) => mod12(ch.root + x.s)))].sort((a, b) => mod12(a - ch.root) - mod12(b - ch.root));
+  let best = null;
+  for (let r = 0; r < pcs.length; r++) {
+    const ns = [53 + mod12(pcs[r] - 53)];   // lowest note F3..E4
+    for (let q = 1; q < pcs.length; q++) { const n = ns[q - 1]; ns.push(n + (mod12(pcs[(r + q) % pcs.length] - n) || 12)); }
+    const avg = ns.reduce((a, b) => a + b, 0) / ns.length, top = ns[ns.length - 1];
+    let cost = prev ? Math.abs(avg - prev.avg) + 0.5 * Math.abs(top - prev.top) + 0.15 * Math.abs(avg - 64) : Math.abs(avg - 64);
+    if (ns.length > 1 && ns[1] - ns[0] === 1) cost += 2;   // a second at the bottom is muddy
+    if (!best || cost < best.cost) best = { rh: ns, avg, top, cost };
+  }
+  const p5 = ch.bass === null && ch.iv.some((x) => x.k === 2 && x.s === 7);
+  // right-hand broken chord: up through the voicing to the octave and back
+  const up = [...best.rh, best.rh[0] + 12];
+  return { bass, fifth: p5 ? (bass + 7 <= 50 ? bass + 7 : bass - 5) : bass, rh: best.rh, avg: best.avg, top: best.top,
+           arp: up.concat(up.slice(1, -1).reverse()) };
+}
+
+// eighth j of a bar of n8 eighths, spb eighths a beat -> what the part plays there
+// (null: nothing; len: the note's length in eighths, else until the part's next note)
+function harmAt(style, j, n8, spb) {
+  const beat = j % spb === 0 ? j / spb : -1;
+  switch (style) {
+    case 'whole': return j === 0 ? {} : null;
+    case 'quarter': return beat >= 0 ? { len: spb * 0.9, soft: beat > 0 } : null;
+    case 'eighth': return { len: 0.8, soft: j % spb !== 0 };
+    case 'synco':
+      if (n8 !== 8) return beat >= 0 ? { soft: beat > 0 } : null;
+      return [0, 3, 6].includes(j) ? { soft: j > 0 } : null;
+    case 'arp': return {};
+  }
+  return null;
+}
+function bassAt(style, j, n8, spb) {
+  const beat = j % spb === 0 ? j / spb : -1, nb = n8 / spb;
+  const half = nb % 2 === 0 && nb > 2 ? nb / 2 : 0;   // the middle of the bar, in beats
+  switch (style) {
+    case 'whole': return j === 0 ? {} : null;
+    // Hookpad's Piano Bass Dotted: a dotted quarter and an eighth, every half bar
+    case 'dotted': {
+      const h = half ? half * spb : n8, k = j % h;
+      return k === 0 ? {} : spb === 2 && k === 3 && h >= 4 ? { soft: true } : null;
+    }
+    case 'eighth': return { len: 0.85, soft: j % spb !== 0 };
+    case 'fifth': return beat === 0 ? {} : half && beat === half ? { fifth: true } : null;
+  }
+  return null;
+}
+
+// One pass of the accompaniment as notes [{ t, n, d, v }] sorted by time
+// (quarters). harm 'block' is the written voicing and is not played from here.
+export function accompany(S, { harm = 'whole', bass = 'dotted', vel = 100 } = {}) {
+  const out = [];
+  if (harm === 'block' || !S.events.length || S.total <= 0) return out;
+  const segs = [];
+  let ch = null;
+  for (const e of S.events) {
+    if (e.kind === K.PLAY) ch = e.chord;
+    else if (e.kind === K.STOP || e.kind === K.ERR) ch = null;
+    else if (e.kind !== K.STREAK || !ch) continue;
+    if (segs.length) segs[segs.length - 1].t1 = e.t;
+    segs.push({ t0: e.t, t1: S.total, ch, acc: e.acc });
+  }
+  const bl = [...new Set(S.barLines)].sort((a, b) => a - b);
+  if (!bl.length || bl[0] > 1e-6) bl.unshift(0);
+  const barAt = (t) => { let i = 0; while (i + 1 < bl.length && bl[i + 1] <= t + 1e-6) i++; return i; };
+  const g = 0.5, spb = Math.max(1, Math.round(S.MU / g));
+  const swing = (p) => {
+    if (S.legend.swing8) { const f = p - Math.floor(p + 1e-6); if (Math.abs(f - 0.5) < 1e-4) p += 1 / 6; }
+    return p;
+  };
+  const V = (x) => Math.max(1, Math.min(127, Math.round(x)));
+  const push = (t, n, end, v) => { if (end > t + 1e-6 && n >= 0 && n <= 127) out.push({ t, n, d: end - t, v: V(v) }); };
+  // the hits of one part over a chord: its pattern, and the chord change itself
+  const hitsOf = (sg, at) => {
+    const hits = [];
+    for (let bi = barAt(sg.t0); bi < bl.length && bl[bi] < sg.t1 - 1e-6; bi++) {
+      const b0 = bl[bi], b1 = bi + 1 < bl.length ? bl[bi + 1] : S.total, n8 = Math.round((b1 - b0) / g);
+      for (let j = 0; j < n8; j++) {
+        const p = b0 + j * g;
+        if (p < sg.t0 - 1e-6 || p >= sg.t1 - 1e-6) continue;
+        const h = at(j, n8, spb);
+        if (h) hits.push({ ...h, t: b0 + swing(j * g), b1, bar: j === 0 });
+      }
+    }
+    if (!hits.length || hits[0].t > sg.t0 + 1e-6) hits.unshift({ t: sg.t0, b1: bl[barAt(sg.t0) + 1] ?? S.total });
+    Object.assign(hits[0], { start: true, soft: false, fifth: false });
+    hits.forEach((h, i) => { h.end = Math.min(sg.t1, i + 1 < hits.length ? hits[i + 1].t : sg.t1, h.len ? h.t + h.len * g : Infinity); });
+    return hits;
+  };
+  let prev = null;
+  for (const sg of segs) {
+    if (!sg.ch || sg.t1 <= sg.t0 + 1e-6) continue;
+    const vo = pianoVoicing(sg.ch, prev);
+    prev = vo;
+    const acc = sg.acc ? 27 : 0;
+    let ai = 0;
+    for (const h of hitsOf(sg, (j, n8, spb) => harmAt(harm, j, n8, spb))) {
+      const v = (h.soft ? vel * 0.75 : vel * 0.9) + (h.start ? acc : 0);
+      if (harm === 'arp') {
+        // the broken chord starts again at each bar and chord, and is pedalled to the bar's end
+        if (h.bar || h.start) ai = 0;
+        push(h.t, vo.arp[ai++ % vo.arp.length], Math.min(sg.t1, h.b1), ai === 1 ? v : vel * 0.75);
+      } else {
+        const end = harm === 'whole' ? Math.min(h.end, h.b1) : h.end;
+        for (const n of vo.rh) push(h.t, n, end, v);
+      }
+    }
+    if (bass !== 'none') {
+      for (const h of hitsOf(sg, (j, n8, spb) => bassAt(bass, j, n8, spb))) {
+        push(h.t, h.fifth ? vo.fifth : vo.bass, h.end, (h.soft ? vel * 0.8 : vel * 0.95) + (h.start ? acc : 0));
+      }
+    }
+  }
+  out.sort((a, b) => a.t - b.t || a.n - b.n);
+  // the same key struck again while it still sounds: the earlier one ends there
+  const last = new Map();
+  for (const x of out) {
+    const p = last.get(x.n);
+    if (p && p.t + p.d > x.t) p.d = x.t - p.t;
+    last.set(x.n, x);
+  }
+  return out.filter((x) => x.d > 1e-6);
 }

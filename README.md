@@ -6,14 +6,16 @@ https://chord.nemut.ai/
 
 An editor for chord sheets in ChordWiki format that plays them along a timeline as you write. It also reads rechord notation.
 
-The whole app is two files, `public/index.html` and `public/engine.js`, with no build step and no dependencies. Your text is saved in your browser only and is never sent anywhere.
+The whole app is two files, `public/index.html` and `public/engine.js` (plus the piano samples in `public/piano/`), with no build step and no dependencies. Your text is saved in your browser only and is never sent anywhere.
 
 ## Features
 
 - Type on the left; the preview on the right and the timeline at the top update immediately
 - The preview colours each chord by its scale degree in the key and shows lyrics and note lengths under the chords
 - The timeline draws each chord as a block as long as it sounds; bars whose written lengths don't fill the meter (or overflow it) are marked in red with their length in beats
-- Plays through a small built-in synth or a Web MIDI output, lighting up the current chord and the current note
+- Plays through the built-in sounds or a Web MIDI output, lighting up the current chord and the current note
+- Accompaniment as a two-part band like Hookpad's: 和音 (the right hand, 3-4 chord tones that move as little as possible: 白玉, 4分, 8分, シンコペ, アルペジオ) and ベース (白玉, 付点 = dotted quarter + eighth, 8分, ルートと5度). ベタ打ち keeps the written voicing, as rechord plays it; chord previews always use that voicing
+- Built-in sounds: a sampled piano (Salamander Grand Piano), an electric piano, a simple synth (Wave, Detune, Cutoff, Resonance, Filter Env, ADSR) and the plain tone (シンプル)
 - Exports a `.mid` file that drops straight onto a DAW timeline
 - Open, save or drag in `.txt` files
 
@@ -32,6 +34,7 @@ The whole app is two files, `public/index.html` and `public/engine.js`, with no 
 | Ctrl+Shift+Space | Play the chord at the caret |
 | Ctrl+/ | Comment the selected lines on / off |
 | Ctrl+S / Ctrl+O | Save / open |
+| Ctrl+wheel, Ctrl+= / Ctrl+- / Ctrl+0 | Zoom the editor or the preview on its own, as in VS Code (the pane under the mouse, or the one last used; Ctrl+; on a JIS keyboard) |
 | Space | Plays from the chord at the caret, or stops (also in the editor; an IME conversion keeps its Space) |
 | Ctrl+Space | Types a space in the editor (in chord input mode it steps out of the chord first) |
 

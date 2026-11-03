@@ -36,3 +36,13 @@ The Rechord input format and the way chords are voiced and placed in a bar
 follow the behaviour of [rechord](https://github.com/comorebi-notes/rechord).
 This is an independent implementation written from that behaviour; no rechord
 code is included.
+
+## Salamander Grand Piano
+
+The piano sound (`piano/*.mp3`) is made from the
+[Salamander Grand Piano V3](https://github.com/sfzinstruments/SalamanderGrandPiano)
+by Alexander Holm, licensed under
+[CC BY 3.0](https://creativecommons.org/licenses/by/3.0/). One note every three
+semitones from A0 to C8, taken from the MP3 set Tone.js hosts
+(https://tonejs.github.io/audio/salamander/), cut to 5 seconds with a fade-out
+and mixed down to mono at 64 kbps.

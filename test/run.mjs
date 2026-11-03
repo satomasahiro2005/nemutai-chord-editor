@@ -5,7 +5,7 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { parse, renderNotes } from '../public/engine.js';
+import { parse, renderNotes, accompany, HARM, BASS, K } from '../public/engine.js';
 
 const dir = path.dirname(fileURLToPath(import.meta.url));
 const update = process.argv.includes('--update');
@@ -42,6 +42,23 @@ for (const f of fs.readdirSync(path.join(dir, 'fixtures')).filter((f) => f.endsW
     let i = 0;
     while (i < Math.min(gn.length, wn.length) && JSON.stringify(gn[i]) === JSON.stringify(wn[i])) i++;
     console.log(`FAIL ${f} [${k}] total ${got[k].total}/${want[k].total}, first difference at note #${i}: got ${JSON.stringify(gn[i])} want ${JSON.stringify(wn[i])}`);
+  }
+}
+// the accompaniment: every pattern gives notes in range, in order, within the
+// song, and never strikes a key that is still sounding
+for (const f of fs.readdirSync(path.join(dir, 'fixtures')).filter((f) => f.endsWith('.txt')).sort()) {
+  const S = parse(fs.readFileSync(path.join(dir, 'fixtures', f), 'utf8'));
+  for (const harm of HARM.slice(1)) for (const bass of BASS) {
+    const P = accompany(S, { harm, bass }), on = new Map();
+    let bad = null;
+    P.forEach((x, i) => {
+      if (!(x.n >= 0 && x.n <= 127 && x.v >= 1 && x.v <= 127 && x.d > 0 && x.t >= 0 && x.t + x.d <= S.total + 1e-6)) bad = `note ${JSON.stringify(x)}`;
+      if (i && P[i - 1].t > x.t) bad = `order at #${i}`;
+      if ((on.get(x.n) ?? -1) > x.t + 1e-6) bad = `key ${x.n} struck again at ${x.t} while sounding`;
+      on.set(x.n, x.t + x.d);
+    });
+    if (S.events.some((e) => e.kind === K.PLAY) && !P.length) bad = 'no notes';
+    if (bad) { fail++; console.log(`FAIL ${f} [accompany ${harm}/${bass}] ${bad}`); }
   }
 }
 console.log(update ? `updated ${count} expectations` : fail ? `${fail} failures` : `ok: ${count} fixtures`);

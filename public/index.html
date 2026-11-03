@@ -19,11 +19,18 @@ body { display: grid; grid-template-rows: auto auto 1fr; }
 button, select, input { font: inherit; color: var(--text); background: var(--panel2); border: 1px solid var(--line); border-radius: 6px; padding: 4px 9px; }
 button:hover { border-color: var(--dim); }
 button.on { border-color: var(--hi); color: var(--hi); }
+button:disabled, select:disabled { opacity: .4; cursor: default; }
 #bar { display: flex; gap: 8px; align-items: center; padding: 8px 12px; background: var(--panel); flex-wrap: wrap; }
 #bar .title { font-weight: 700; margin-right: 6px; max-width: 30ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 #bar .sep { flex: 1; }
 #bar label { color: var(--dim); display: flex; gap: 4px; align-items: center; }
 #bar input[type=number] { width: 4.5em; }
+#synth { display: none; flex-basis: 100%; gap: 6px 14px; align-items: center; flex-wrap: wrap; padding-top: 6px; border-top: 1px solid var(--line); }
+body.synth #synth { display: flex; }
+#synth input[type=range] { width: 90px; accent-color: var(--hi); }
+#synth output { font: 12px var(--mono); color: var(--text); min-width: 5ch; }
+#synthBtn { display: none; }
+body.tone-synth #synthBtn { display: inline-block; }
 .tp { display: flex; }
 .tp button { display: grid; place-items: center; width: 34px; height: 30px; padding: 0; border-radius: 0; margin-left: -1px; }
 .tp button:first-child { border-radius: 6px 0 0 6px; margin-left: 0; }
@@ -60,7 +67,7 @@ main { display: grid; grid-template-columns: var(--left, 42%) 6px 1fr 120px; min
 ::-webkit-scrollbar-track, ::-webkit-scrollbar-corner { background: transparent; }
 #pv { scrollbar-width: none; }
 #pv::-webkit-scrollbar { display: none; }
-#pvin { zoom: var(--z, 1); }
+#pvin { zoom: var(--zr, 1); }
 #left { display: flex; flex-direction: column; min-height: 0; min-width: 0; }
 #pal { display: flex; flex-wrap: wrap; gap: 4px; padding: 6px 8px; background: var(--panel); border-bottom: 1px solid var(--line); align-items: center; }
 #pal button { padding: 2px 8px; font-weight: 700; }
@@ -72,7 +79,7 @@ main { display: grid; grid-template-columns: var(--left, 42%) 6px 1fr 120px; min
 #ac { position: absolute; z-index: 5; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 3px; display: none; max-height: 220px; overflow: auto; box-shadow: 0 6px 18px #0008; }
 #ac div { padding: 2px 10px; font: 700 14px var(--mono); color: var(--c, var(--text)); border-radius: 4px; cursor: pointer; white-space: nowrap; }
 #ac div.sel { background: #3d5a8a; }
-#ed pre, #ed textarea { position: absolute; inset: 0; margin: 0; padding: 10px 12px; font: calc(14px * var(--z, 1))/1.6 var(--mono); white-space: pre; overflow: auto; tab-size: 4; border: 0; }
+#ed pre, #ed textarea { position: absolute; inset: 0; margin: 0; padding: 10px 12px; font: calc(14px * var(--zl, 1))/1.6 var(--mono); white-space: pre; overflow: auto; tab-size: 4; border: 0; }
 #ed pre { color: var(--text); pointer-events: none; }
 #ed textarea { background: transparent; color: transparent; caret-color: var(--text); resize: none; outline: none; }
 #ed textarea::selection { background: #3d5a8a88; color: transparent; }
@@ -136,11 +143,14 @@ body.embed label:has(#tr) { display: none; }   /* ChordWiki's own transposition 
     <button id="loop" class="on" title="ループ"><svg viewBox="0 0 16 16"><path d="M3 7a3 3 0 0 1 3-3h5V2l3 3-3 3V6H6a1 1 0 0 0-1 1v1H3zM13 9a3 3 0 0 1-3 3H5v2l-3-3 3-3v2h5a1 1 0 0 0 1-1V8h2z"/></svg></button>
   </span>
   <span id="time"></span>
-  <button id="rhythm" class="on" title="書いた長さどおりに弾き直す">リズム</button>
+  <button id="rhythm" class="on" title="書いた長さどおりに弾き直す（ベタ打ちのとき）">リズム</button>
+  <label>和音 <select id="harm"><option value="block">ベタ打ち</option><option value="whole">白玉</option><option value="quarter">4分</option><option value="eighth">8分</option><option value="synco">シンコペ</option><option value="arp">アルペジオ</option></select></label>
+  <label>ベース <select id="bassp"><option value="none">なし</option><option value="whole">白玉</option><option value="dotted">付点</option><option value="eighth">8分</option><option value="fifth">ルートと5度</option></select></label>
   <label>BPM <input id="bpm" type="number" min="20" max="400" step="1"></label>
   <label>移調 <input id="tr" type="number" min="-12" max="12" step="1" value="0"></label>
-  <label>拡大 <select id="zoom"><option>80</option><option>90</option><option selected>100</option><option>110</option><option>125</option><option>150</option><option>175</option><option>200</option></select></label>
   <label>色 <select id="color"><option value="0">度数</option><option value="1">音名</option></select></label>
+  <label>音色 <select id="tone"><option value="piano">ピアノ</option><option value="epiano">エレピ</option><option value="synth">シンセ</option><option value="simple">シンプル</option></select></label>
+  <button id="synthBtn" title="シンセの音を作る">シンセ</button>
   <label>出力 <select id="out"><option value="">内蔵音</option></select></label>
   <label title="アクセントはこれより 27 強く（上限 127）">ベロシティ <input id="vel" type="number" min="1" max="127" step="1" value="100"></label>
   <span id="info"></span>
@@ -152,6 +162,18 @@ body.embed label:has(#tr) { display: none; }   /* ChordWiki's own transposition 
   <button id="save">保存</button>
   <button id="mid">MIDI書き出し</button>
   <input id="file" type="file" accept=".txt,text/plain" hidden>
+  <div id="synth">
+    <label>Wave <select data-k="wave"><option value="sawtooth">Saw</option><option value="square">Square</option><option value="triangle">Triangle</option><option value="sine">Sine</option></select></label>
+    <label>Detune <input type="range" data-k="detune" min="0" max="50" step="1"><output></output></label>
+    <label>Cutoff <input type="range" data-k="cutoff" min="0" max="1" step="0.01"><output></output></label>
+    <label>Resonance <input type="range" data-k="q" min="0" max="20" step="0.1"><output></output></label>
+    <label>Filter Env <input type="range" data-k="fenv" min="0" max="1" step="0.01"><output></output></label>
+    <label>Attack <input type="range" data-k="a" min="0" max="2" step="0.005"><output></output></label>
+    <label>Decay <input type="range" data-k="d" min="0.01" max="3" step="0.01"><output></output></label>
+    <label>Sustain <input type="range" data-k="s" min="0" max="1" step="0.01"><output></output></label>
+    <label>Release <input type="range" data-k="r" min="0.01" max="3" step="0.01"><output></output></label>
+    <button id="synthReset">Init</button>
+  </div>
 </div>
 <div id="tlwrap"><div id="tlspace"></div><canvas id="tl"></canvas></div>
 <main>
@@ -166,7 +188,7 @@ body.embed label:has(#tr) { display: none; }   /* ChordWiki's own transposition 
 </main>
 <div id="drop"></div>
 <script type="module">
-import { parse, K, ROW, lastEventAt, definingEvent, chordFromName, tonicAt } from './engine.js';
+import { parse, K, ROW, lastEventAt, definingEvent, chordFromName, tonicAt, accompany } from './engine.js';
 
 const $ = (id) => document.getElementById(id);
 const src = $('src'), hl = $('hl'), pv = $('pv'), tl = $('tl'), tlwrap = $('tlwrap'), mm = $('mm');
@@ -1000,6 +1022,128 @@ src.addEventListener('keydown', (e) => {
 src.addEventListener('input', () => { if (ac.style.display === 'block') setTimeout(openCompletion); });
 src.addEventListener('blur', () => setTimeout(closeCompletion, 100));
 
+// ------------------------------------------------------------ built-in sounds
+// The piano is the Salamander Grand Piano (one note every three semitones,
+// fetched the first time it is needed); until it is in, and for the other
+// tones, small synthesized instruments: a piano from a struck string's
+// spectrum, an FM electric piano and a simple subtractive synth whose knobs
+// are in the シンセ panel. All go through a little room.
+const PIANO = [];
+for (let n = 21; n <= 108; n += 3) PIANO.push(n);
+const pianoBufs = new Map();
+let pianoLoading = false;
+function loadPiano() {
+  if (pianoLoading) return;
+  pianoLoading = true;
+  const dec = new OfflineAudioContext(1, 1, 44100);
+  for (const n of PIANO) {
+    const name = ['C', 'Ds', 'Fs', 'A'][(n % 12) / 3] + (Math.floor(n / 12) - 1);
+    fetch(`piano/${name}.mp3`).then((r) => r.arrayBuffer()).then((b) => dec.decodeAudioData(b))
+      .then((b) => pianoBufs.set(n, b)).catch(() => {});
+  }
+}
+function sampleVoice(c, n, vel, t, dest) {
+  const root = Math.max(21, Math.min(108, 21 + 3 * Math.round((n - 21) / 3))), buf = pianoBufs.get(root);
+  if (!buf) return null;
+  const s = c.createBufferSource(), lp = c.createBiquadFilter(), g = c.createGain();
+  s.buffer = buf; s.playbackRate.value = 2 ** ((n - root) / 12);
+  // one velocity layer: softer is darker as well as quieter
+  lp.type = 'lowpass'; lp.Q.value = 0.5; lp.frequency.value = 1200 + 17000 * (vel / 127) ** 2;
+  g.gain.setValueAtTime(6 * (vel / 127) ** 1.6, t);
+  s.connect(lp).connect(g).connect(dest); s.start(t);
+  return { n, g, o: [s], start: t, rel: 0.1 };
+}
+const SYNTH = { wave: 'sawtooth', detune: 8, cutoff: 0.55, q: 2, fenv: 0.4, a: 0.01, d: 0.3, s: 0.6, r: 0.3 };
+const synthP = { ...SYNTH };
+try { Object.assign(synthP, JSON.parse(localStorage.getItem('csp.synth') || '{}')); } catch {}
+const cutoffHz = (x) => 80 * 200 ** x;
+function roomIR(c) {
+  const len = Math.round(c.sampleRate * 1.6), b = c.createBuffer(2, len, c.sampleRate);
+  for (let ch = 0; ch < 2; ch++) {
+    const d = b.getChannelData(ch);
+    let y = 0;
+    for (let i = 0; i < len; i++) { y += 0.3 * (Math.random() * 2 - 1 - y); d[i] = y * Math.exp(-6.9 * i / len); }
+  }
+  return b;
+}
+function noiseBuf(c) {
+  const len = Math.round(c.sampleRate * 0.05), b = c.createBuffer(1, len, c.sampleRate), d = b.getChannelData(0);
+  for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+  return b;
+}
+const pianoWaves = new Map();
+function pianoWave(c, f) {
+  const K = Math.max(2, Math.min(32, Math.floor(8000 / f)));
+  if (!pianoWaves.has(K)) {
+    const re = new Float32Array(K + 1), im = new Float32Array(K + 1);
+    for (let k = 1; k <= K; k++) im[k] = Math.abs(Math.sin(Math.PI * k / 7.3)) / k ** 0.9;   // struck at 1/7 of the string
+    pianoWaves.set(K, c.createPeriodicWave(re, im));
+  }
+  return pianoWaves.get(K);
+}
+function synthVoice(c, tone, n, vel, t, dest, noise, P = synthP) {
+  const f = 440 * 2 ** ((n - 69) / 12), a = (vel / 127) ** 1.5, g = c.createGain(), src = [];
+  const osc = (type, freq, to, detune = 0) => {
+    const o = c.createOscillator();
+    if (typeof type === 'string') o.type = type; else o.setPeriodicWave(type);
+    o.frequency.value = freq; o.detune.value = detune;
+    o.connect(to); o.start(t); src.push(o);
+    return o;
+  };
+  const lowpass = (from, to, tau, q) => {
+    const lp = c.createBiquadFilter();
+    lp.type = 'lowpass'; lp.Q.value = q;
+    lp.frequency.setValueAtTime(from, t); lp.frequency.setTargetAtTime(to, t + 0.005, tau);
+    lp.connect(g);
+    return lp;
+  };
+  let rel;
+  g.gain.setValueAtTime(0, t);
+  if (tone === 'piano') {
+    const lp = lowpass(Math.min(16000, f * (2 + 14 * a) + 300), Math.min(6000, f * 2.5 + 200), 0.5, 0.3);
+    const w = pianoWave(c, f), s2 = c.createGain();
+    s2.gain.value = 0.7; s2.connect(lp);
+    osc(w, f, lp); osc(w, f, s2, n > 40 ? 3 : 1.5);
+    const h = c.createBufferSource(), bp = c.createBiquadFilter(), hg = c.createGain();
+    h.buffer = noise; bp.type = 'bandpass'; bp.frequency.value = Math.min(5000, Math.max(800, f * 4)); bp.Q.value = 0.8;
+    hg.gain.setValueAtTime(a * 0.25, t); hg.gain.setTargetAtTime(0, t, 0.012);
+    h.connect(bp).connect(hg).connect(g); h.start(t); src.push(h);
+    // high strings are quieter and die sooner
+    const peak = a * Math.min(1.1, Math.max(0.35, 1 - (n - 60) / 90)), long = Math.max(0.5, Math.min(6, 3 * 2 ** (-(n - 48) / 18)));
+    g.gain.linearRampToValueAtTime(peak, t + 0.003);
+    g.gain.setTargetAtTime(peak * 0.4, t + 0.003, 0.1);
+    g.gain.setTargetAtTime(0, t + 0.3, long);
+    rel = 0.08;
+  } else if (tone === 'epiano') {
+    const car = osc('sine', f, g), mg = c.createGain(), tg = c.createGain();
+    mg.gain.setValueAtTime(f * (0.8 + 2.2 * a), t); mg.gain.setTargetAtTime(f * 0.2, t, 0.35);
+    tg.gain.setValueAtTime(f * 1.2 * a, t); tg.gain.setTargetAtTime(0, t, 0.03);   // the tine
+    mg.connect(car.frequency); tg.connect(car.frequency);
+    osc('sine', f, mg); osc('sine', f * 14, tg);
+    const peak = a * 0.6;
+    g.gain.linearRampToValueAtTime(peak, t + 0.002);
+    g.gain.setTargetAtTime(peak * 0.3, t + 0.002, 0.5);
+    g.gain.setTargetAtTime(0, t + 0.6, Math.max(0.4, Math.min(3, 2 * 2 ** (-(n - 60) / 24))));
+    rel = 0.12;
+  } else {
+    // two oscillators (detuned apart) -> low-pass with its own envelope -> ADSR
+    const atk = Math.max(0.002, P.a), cut = Math.min(18000, cutoffHz(P.cutoff) * (f / 262) ** 0.5);
+    const lp = c.createBiquadFilter();
+    lp.type = 'lowpass'; lp.Q.value = P.q;
+    lp.frequency.setValueAtTime(cut, t);
+    lp.frequency.linearRampToValueAtTime(Math.min(18000, cut * 2 ** (P.fenv * 5 * (0.5 + 0.5 * a))), t + atk);
+    lp.frequency.setTargetAtTime(cut, t + atk, P.d / 3);
+    lp.connect(g);
+    if (P.detune > 0) { osc(P.wave, f, lp, -P.detune / 2); osc(P.wave, f, lp, P.detune / 2); } else osc(P.wave, f, lp);
+    const peak = a * (P.detune > 0 ? 0.6 : 1);
+    g.gain.linearRampToValueAtTime(peak, t + atk);
+    g.gain.setTargetAtTime(peak * P.s, t + atk, P.d / 3);
+    rel = P.r / 3;
+  }
+  g.connect(dest);
+  return { n, g, o: src, start: t, rel };
+}
+
 // ------------------------------------------------------------ playback
 // WebAudio voice, scheduled ahead like a sequencer.
 const player = {
@@ -1009,10 +1153,21 @@ const player = {
   timeAt(beat) { return this.t0 + (beat - this.b0) * 60 / this.bpm(); },
   audio() {
     if (!this.ctx) {
-      this.ctx = new AudioContext();
-      this.master = this.ctx.createGain(); this.master.gain.value = 0.18;
-      const lp = this.ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 3200;
-      this.master.connect(lp).connect(this.ctx.destination);
+      const c = this.ctx = new AudioContext();
+      // シンプル: the tone it always had
+      this.master = c.createGain(); this.master.gain.value = 0.18;
+      const lp = c.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 3200;
+      this.master.connect(lp).connect(c.destination);
+      // the other tones: a little room, and a limiter for big chords
+      const comp = c.createDynamicsCompressor();
+      comp.threshold.value = -12; comp.knee.value = 6; comp.ratio.value = 4; comp.attack.value = 0.003; comp.release.value = 0.2;
+      comp.connect(c.destination);
+      this.bus = c.createGain(); this.bus.gain.value = 0.2;
+      const rev = c.createConvolver(), wet = c.createGain();
+      rev.buffer = roomIR(c); wet.gain.value = 0.22;
+      this.bus.connect(comp);
+      this.bus.connect(rev).connect(wet).connect(comp);
+      this.noise = noiseBuf(c);
     }
     return this.ctx;
   },
@@ -1023,6 +1178,9 @@ const player = {
       this.lastSched = Math.max(this.lastSched || 0, at);
       return { n, midi: true, at };
     }
+    const tone = $('tone').value;
+    if (tone === 'piano') loadPiano();
+    if (tone !== 'simple') return (tone === 'piano' && sampleVoice(this.ctx, n, vel, time, this.bus)) || synthVoice(this.ctx, tone, n, vel, time, this.bus, this.noise);
     const c = this.ctx, f = 440 * 2 ** ((n - 69) / 12), g = c.createGain(), a = vel / 127;
     const o1 = c.createOscillator(), o2 = c.createOscillator();
     o1.type = 'triangle'; o2.type = 'sine'; o1.frequency.value = f; o2.frequency.value = f * 2;
@@ -1032,7 +1190,7 @@ const player = {
     g.gain.linearRampToValueAtTime(a, time + 0.006);
     g.gain.setTargetAtTime(a * 0.35, time + 0.01, 0.25);
     o1.start(time); o2.start(time);
-    return { n, g, o: [o1, o2], start: time };
+    return { n, g, o: [o1, o2], start: time, rel: 0.08 };
   },
   noteOff(v, time) {
     // Notes sent with the same timestamp can arrive in any order on Windows
@@ -1053,12 +1211,22 @@ const player = {
       for (const o of v.o) o.stop(v.start);
       return;
     }
-    v.g.gain.cancelScheduledValues(time);
-    v.g.gain.setTargetAtTime(0, time, 0.08);
-    for (const o of v.o) o.stop(time + 0.6);
+    if (v.g.gain.cancelAndHoldAtTime) v.g.gain.cancelAndHoldAtTime(time); else v.g.gain.cancelScheduledValues(time);
+    v.g.gain.setTargetAtTime(0, time, v.rel);
+    for (const o of v.o) o.stop(time + Math.max(0.6, v.rel * 8));
   },
   perf(time) { return performance.now() + (time - this.ctx.currentTime) * 1000; },
-  release(time) { for (const v of this.voices) this.noteOff(v, time); this.voices = []; },
+  // (a planned note-off that comes sooner stays)
+  release(time) { for (const v of this.voices) this.noteOff(v, v.off !== undefined ? Math.min(v.off, time) : time); this.voices = []; },
+  // a note of the accompaniment, with its note-off sent when it comes near
+  play(p, at, off) { const v = this.noteOn(p.n, p.v, at); v.off = Math.max(off, at + 0.02); this.voices.push(v); },
+  // the accompaniment of the song in the chosen patterns (null: ベタ打ち)
+  plan() {
+    const harm = $('harm').value, bass = $('bassp').value, key = `${harm}:${bass}:${this.vel()}`;
+    if (harm === 'block' || !S) return null;
+    if (this.planS !== S || this.planKey !== key) { this.planS = S; this.planKey = key; this.planP = accompany(S, { harm, bass, vel: this.vel() }); }
+    return this.planP;
+  },
   strike(notes, vel, time) { this.release(time); this.voices = notes.map((n) => this.noteOn(n, vel, time)); },
   // a chord on its own, for writing (not tied to the song position)
   audition(name) {
@@ -1109,6 +1277,16 @@ const player = {
     const loop = $('loop').classList.contains('on');
     if (b >= S.total) { if (!loop) return this.stop(); b %= S.total; }
     this.b0 = b; this.t0 = now; this.cycle = 0;
+    const P = this.plan();
+    if (P) {
+      this.release(now);
+      let k = 0;
+      while (k < P.length && P[k].t < b - 1e-6) k++;
+      // what already sounds there goes on from here (a held chord or bass, a pedalled broken chord)
+      for (let q = 0; q < k; q++) if (P[q].t + P[q].d > b + 0.05) this.play(P[q], now, this.timeAt(P[q].t + P[q].d));
+      this.next = k;
+      return;
+    }
     const i = lastEventAt(S.events, b), d = definingEvent(S.events, i, loop);
     this.cur = d >= 0 && S.events[d].kind === K.PLAY ? S.events[d].chord.notes : [];
     // the event right at the start keeps its own velocity (an accent stays one)
@@ -1117,16 +1295,19 @@ const player = {
   },
   tick() {
     const c = this.ctx, until = c.currentTime + 0.12, loop = $('loop').classList.contains('on');
+    this.voices = this.voices.filter((v) => v.off === undefined || v.off > until || (this.noteOff(v, v.off), false));
+    const P = this.plan(), list = P || S.events;
     for (let guard = 0; guard < 512; guard++) {
-      if (this.next >= S.events.length) {
+      if (this.next >= list.length) {
         const endT = this.timeAt(S.total + this.cycle * S.total);
         if (endT > until) break;
         if (!loop) { this.release(endT); setTimeout(() => this.stop(), Math.max(0, (endT - c.currentTime) * 1000)); clearInterval(this.timer); return; }
         this.cycle++; this.next = 0;
       }
-      const e = S.events[this.next], time = this.timeAt(e.t + this.cycle * S.total);
+      const e = list[this.next], time = this.timeAt(e.t + this.cycle * S.total);
       if (time > until) break;
-      this.apply(e, Math.max(time, c.currentTime));
+      if (P) this.play(e, Math.max(time, c.currentTime), this.timeAt(e.t + e.d + this.cycle * S.total));
+      else this.apply(e, Math.max(time, c.currentTime));
       this.next++;
     }
   },
@@ -1200,7 +1381,9 @@ function exportMidi() {
   const ev = [];   // [tick, bytes]
   let cur = [];
   const strike = (notes, vel, tick) => { for (const n of cur) ev.push([tick, [0x80, n, 0]]); cur = notes; for (const n of cur) ev.push([tick + 0.5, [0x90, n, vel]]); };
-  for (const e of S.events) {
+  const P = player.plan();
+  if (P) for (const p of P) ev.push([Math.round(p.t * tpq) + 0.5, [0x90, p.n, p.v]], [Math.round((p.t + p.d) * tpq), [0x80, p.n, 0]]);
+  else for (const e of S.events) {
     const tick = Math.round(e.t * tpq);
     if ([K.PLAY, K.STOP, K.ERR].includes(e.kind)) strike(e.kind === K.PLAY ? e.chord.notes : [], player.velOf(e), tick);
     else if ((e.kind === K.STREAK || (e.kind === K.HIT && rhythm)) && cur.length) strike(cur, player.velOf(e), tick);
@@ -1277,6 +1460,41 @@ for (const id of ['loop', 'rhythm']) {
   if (v !== null) $(id).classList.toggle('on', v === '1');
   $(id).onclick = () => { store.set('csp.' + id, $(id).classList.toggle('on') ? '1' : '0'); };
 }
+// the band (chords and bass patterns) and the tone, remembered too;
+// リズム and the bass only play a part on one side of ベタ打ち
+for (const [id, def] of [['harm', 'block'], ['bassp', 'dotted'], ['tone', 'piano']]) {
+  const v = store.get('csp.' + id);
+  $(id).value = v && [...$(id).options].some((o) => o.value === v) ? v : def;
+}
+const syncBand = () => { const block = $('harm').value === 'block'; $('rhythm').disabled = !block; $('bassp').disabled = block; };
+syncBand();
+for (const id of ['harm', 'bassp']) $(id).onchange = () => { store.set('csp.' + id, $(id).value); syncBand(); if (player.on) player.reschedule(); };
+const syncTone = () => {
+  const t = $('tone').value;
+  document.body.classList.toggle('tone-synth', t === 'synth');
+  if (t !== 'synth') { document.body.classList.remove('synth'); $('synthBtn').classList.remove('on'); }
+  if (t === 'piano') loadPiano();
+};
+$('tone').onchange = () => { store.set('csp.tone', $('tone').value); syncTone(); };
+// the piano comes in on the first touch of the page, so it is there when playing starts
+for (const ev of ['pointerdown', 'keydown']) addEventListener(ev, () => { if ($('tone').value === 'piano') loadPiano(); }, { once: true });
+syncTone();
+// the synth's knobs
+const synthEls = [...document.querySelectorAll('#synth [data-k]')];
+const showSynth = () => {
+  for (const el of synthEls) {
+    const k = el.dataset.k, v = synthP[k], out = el.nextElementSibling;
+    el.value = v;
+    if (!out) continue;
+    out.textContent = k === 'cutoff' ? `${Math.round(cutoffHz(v))}Hz` : k === 'detune' ? `${v}c` : 'adr'.includes(k) ? `${(+v).toFixed(2)}s` : (+v).toFixed(k === 'q' ? 1 : 2);
+  }
+};
+for (const el of synthEls) el.oninput = () => { synthP[el.dataset.k] = el.type === 'range' ? +el.value : el.value; store.set('csp.synth', JSON.stringify(synthP)); showSynth(); };
+// let go of a knob: hear the chord at the caret (or a C) with it
+for (const el of synthEls) el.onchange = () => { const t = tokAtCaret(); player.audition(t && t.chord ? src.value.slice(t.o0, t.o1) : 'C'); };
+$('synthReset').onclick = () => { Object.assign(synthP, SYNTH); store.set('csp.synth', JSON.stringify(synthP)); showSynth(); };
+$('synthBtn').onclick = () => $('synthBtn').classList.toggle('on', document.body.classList.toggle('synth'));
+showSynth();
 let bpmTouched = false;
 $('bpm').oninput = () => { bpmTouched = true; if (player.on) { player.t0 = player.ctx.currentTime; player.b0 = player.pos; } drawTimeline(); drawPlayhead(); };
 $('tr').oninput = update;
@@ -1285,6 +1503,14 @@ $('vel').onchange = () => { $('vel').value = player.vel(); store.set('csp.vel', 
 $('color').onchange = () => { palKey = ''; update(); };
 document.addEventListener('keydown', (e) => {
   if (e.ctrlKey && !e.altKey) {
+    // Ctrl+= (Ctrl+; on JIS) / Ctrl+- / Ctrl+0: zoom the pane in use in / out / back
+    const zk = { Equal: 1, Semicolon: 1, NumpadAdd: 1, Minus: -1, NumpadSubtract: -1, Digit0: 0, Numpad0: 0 }[e.code];
+    if (zk !== undefined) {
+      e.preventDefault();
+      const side = document.activeElement === src ? 'l' : zoomPane;
+      setZoom(side, zk ? Math.round(zoom[side] / 10) * 10 + zk * 10 : 100);
+      return;
+    }
     const k = e.key, prev = k === '[' || k === '{', next = k === ']' || k === '}';
     // Ctrl+[ / Ctrl+]: previous / next chord, and play it
     if (!e.shiftKey && (prev || next)) { e.preventDefault(); stepChord(prev ? -1 : 1, true); return; }
@@ -1330,12 +1556,14 @@ function openMidi() {
       const o = outs.find((x) => x.id === (player.midi ? player.midi.id : want)) || (!player.midi && want ? outs.find((x) => x.name === wantName) : null);
       sel.value = o ? o.id : '';
       player.midi = o || null;
+      $('tone').disabled = !!player.midi;
     };
     fill(); acc.onstatechange = fill;
     $('out').onchange = () => {
       if (player.on || player.voices.length) player.release(player.audio().currentTime);
       if (player.midi) player.midi.send([0xb0, 123, 0], Math.max(performance.now(), (player.lastSched || 0) + 2));
       player.midi = acc.outputs.get($('out').value) || null;
+      $('tone').disabled = !!player.midi;
       store.set('csp.out', player.midi ? player.midi.id : '');
       store.set('csp.outName', player.midi ? player.midi.name : '');
     };
@@ -1344,15 +1572,30 @@ function openMidi() {
 $('out').onfocus = $('out').onmousedown = openMidi;
 if (store.get('csp.out')) openMidi();
 
-// zoom for the editor and the preview
-function setZoom(z) {
-  document.documentElement.style.setProperty('--z', z / 100);
-  $('zoom').value = String(z);
-  store.set('csp.zoom', String(z));
-  drawMinimap();
+// zoom for the editor (l) and the preview (r) each, as in VS Code: Ctrl+wheel
+// over a pane, or the keys above for the pane last used
+const zoom = { l: 100, r: 100 };
+let zoomPane = 'l';
+function setZoom(side, z) {
+  zoom[side] = Math.max(50, Math.min(300, z));
+  document.documentElement.style.setProperty(side === 'l' ? '--zl' : '--zr', zoom[side] / 100);
+  store.set('csp.zoom.' + side, String(Math.round(zoom[side])));
+  if (side === 'r') drawMinimap();
 }
-$('zoom').onchange = () => setZoom(+$('zoom').value);
-setZoom(+(store.get('csp.zoom') || 100));
+{
+  const old = +(store.get('csp.zoom') || 100);   // one zoom for both, before
+  for (const side of ['l', 'r']) setZoom(side, +(store.get('csp.zoom.' + side) || old));
+}
+for (const [el, side] of [[$('left'), 'l'], [pv, 'r']]) {
+  el.addEventListener('pointerdown', () => { zoomPane = side; });
+  el.addEventListener('wheel', (e) => {
+    if (!e.ctrlKey) return;
+    e.preventDefault();
+    zoomPane = side;
+    setZoom(side, zoom[side] * Math.exp(-e.deltaY * 0.0015));
+  }, { passive: false });
+}
+src.addEventListener('focus', () => { zoomPane = 'l'; });
 // drag the line between the editor and the preview
 function setLeft(px) {
   px = Math.max(240, Math.min(px, window.innerWidth - 360));
